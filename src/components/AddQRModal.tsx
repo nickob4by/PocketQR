@@ -1,17 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import {
-  X,
-  Upload,
-  Clipboard,
-  CheckCircle2,
-  AlertTriangle,
-  Loader2,
-  Sparkles,
-  Shield,
-  Camera,
-  Image,
-} from 'lucide-react';
 import type { QRCardItem, BankProvider, AccountCategory } from '../types/qr';
 import { BANK_CONFIGS } from '../types/qr';
 import { decodeQRCode, fileToDataUrl } from '../lib/qrDecoder';
@@ -46,7 +34,6 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [decodeStatus, setDecodeStatus] = useState<'idle' | 'success' | 'warning' | 'error'>('idle');
   const [decodeMessage, setDecodeMessage] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -70,24 +57,6 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
     }
   }, [initialCard, isOpen]);
 
-  // Global paste handler while modal is open
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handlePaste = async (e: ClipboardEvent) => {
-      if (e.clipboardData && e.clipboardData.files.length > 0) {
-        const file = e.clipboardData.files[0];
-        if (file.type.startsWith('image/')) {
-          e.preventDefault();
-          await processImageFile(file);
-        }
-      }
-    };
-
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [isOpen]);
-
   const resetForm = () => {
     setBank('gcash');
     setBankCustomName('');
@@ -98,7 +67,6 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
     setRawPayload(undefined);
     setImageDataUrl('');
     setIsFavorite(false);
-    setIsScanning(false);
     setDecodeStatus('idle');
     setDecodeMessage('');
   };
@@ -106,45 +74,40 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
   const processImageFile = async (file: File | Blob) => {
     setIsScanning(true);
     setDecodeStatus('idle');
-    setDecodeMessage('');
+    setDecodeMessage('Processing optical frame...');
 
     try {
-      // 1. Convert to data URL
       const dataUrl = await fileToDataUrl(file);
       setImageDataUrl(dataUrl);
 
-      // 2. Decode client-side using jsQR
       const result = await decodeQRCode(dataUrl);
 
       if (result.success && result.payload) {
         setRawPayload(result.payload);
-
-        // 3. Parse EMVCo / QR Ph
         const parsed = parseQRPhPayload(result.payload);
 
-        if (parsed.detectedBank) {
-          setBank(parsed.detectedBank);
-        }
-        if (parsed.merchantName && !accountName) {
-          setAccountName(parsed.merchantName);
-        }
-        if (parsed.accountNumber && !accountNumber) {
-          setAccountNumber(parsed.accountNumber);
-        }
+        if (parsed.isValid && parsed.isQRPh) {
+          setDecodeStatus('success');
+          setDecodeMessage('QR Ph EMVCo Standard Verified');
 
-        setDecodeStatus('success');
-        setDecodeMessage(
-          parsed.isQRPh
-            ? `Verified QR Ph standard payload (${parsed.detectedBank ? BANK_CONFIGS[parsed.detectedBank].name : 'Merchant'} detected)`
-            : 'QR Code detected & decoded into vector format'
-        );
-        triggerHaptic('success');
-        onNotify('QR Code Detected!', 'Bank details automatically extracted from QR Ph payload', 'success');
+          if (parsed.merchantName) setAccountName(parsed.merchantName);
+          if (parsed.accountNumber) setAccountNumber(parsed.accountNumber);
+          if (parsed.detectedBank) {
+            setBank(parsed.detectedBank);
+            const cfg = BANK_CONFIGS[parsed.detectedBank];
+            if (cfg) setCategory(cfg.defaultCategory);
+          }
+          triggerHaptic('success');
+          onNotify('QR Ph Verified', parsed.merchantName || 'Details auto-populated', 'success');
+        } else {
+          setDecodeStatus('warning');
+          setDecodeMessage('Valid QR detected (non-standard EMVCo payload)');
+          triggerHaptic('light');
+        }
       } else {
         setRawPayload(undefined);
         setDecodeStatus('warning');
-        setDecodeMessage('Image loaded! QR code could not be auto-read, but you can enter details manually.');
-        triggerHaptic('warning');
+        setDecodeMessage('Visual frame saved. No readable QR pattern found.');
       }
     } catch {
       setDecodeStatus('error');
@@ -178,20 +141,9 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
           }
         }
       }
-      onNotify('No image in clipboard', 'Copy or screenshot a QR code first, then click paste', 'info');
+      onNotify('No image in clipboard', 'Screenshot a QR code first, then tap paste', 'info');
     } catch {
-      onNotify('Clipboard permission needed', 'Paste using keyboard shortcut (Ctrl+V / Cmd+V)', 'info');
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type.startsWith('image/')) {
-        await processImageFile(file);
-      }
+      onNotify('Clipboard permission needed', 'Paste using keyboard shortcut (Ctrl+V)', 'info');
     }
   };
 
@@ -199,7 +151,7 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
     e.preventDefault();
 
     if (!accountName.trim()) {
-      onNotify('Missing Account Name', 'Please enter the account or merchant name', 'error');
+      onNotify('Missing Payee Name', 'Please enter the registered payee or merchant name', 'error');
       return;
     }
 
@@ -209,12 +161,12 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
     }
 
     if (!imageDataUrl && !rawPayload) {
-      onNotify('Missing QR Code', 'Please upload, snap, or paste a QR code screenshot', 'error');
+      onNotify('Missing QR Code', 'Please upload or capture a QR code screenshot', 'error');
       return;
     }
 
     const card: QRCardItem = {
-      id: initialCard ? initialCard.id : `card-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: initialCard ? initialCard.id : `card_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       bank,
       bankCustomName: bank === 'other' ? bankCustomName.trim() : undefined,
       accountName: accountName.trim(),
@@ -235,305 +187,322 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
 
   if (!isOpen) return null;
 
+  const banksList: BankProvider[] = [
+    'gcash',
+    'maya',
+    'bpi',
+    'gotyme',
+    'rcbc',
+    'unionbank',
+    'bdo',
+    'seabank',
+    'other',
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-200 safe-p">
-      <div className="relative w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] modal-overscroll-contain">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950/50 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
-              <Sparkles className="w-4 h-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
+      <div className="relative w-full max-w-md bg-surface text-on-surface rounded-2xl border border-outline-variant/50 shadow-2xl p-space-md flex flex-col font-mono select-none my-auto">
+        {/* Hidden File Inputs */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
+        {/* Top Hardware Telemetry Strip */}
+        <div className="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm pb-2 border-b border-outline-variant/30">
+          <div className="flex items-center gap-space-xs">
+            <span className="text-primary-fixed uppercase font-bold">EEPROM_PROGRAMMER</span>
+            <span className="text-outline">::</span>
+            <span className="text-tertiary">SLOT-WRITER</span>
+          </div>
+          <div className="flex items-center gap-space-xs text-primary">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+            <span>READY</span>
+          </div>
+        </div>
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between mt-2 mb-3">
+          <div className="flex items-center gap-space-sm">
+            <div className="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-primary-fixed">
+              <span className="material-symbols-outlined text-[18px]">developer_board</span>
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-white">
-                {initialCard ? 'Edit QR Ph Card' : 'Add QR Ph Payment Card'}
+              <h2 className="font-headline-md text-headline-md tracking-tight text-on-surface uppercase font-bold text-sm sm:text-base">
+                {initialCard ? 'MODIFY ROM CARTRIDGE' : 'PROGRAM NEW ROM'}
               </h2>
-              <p className="text-xs text-slate-400">Works 100% offline • Stored locally</p>
+              <p className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
+                LOCAL-FIRST • ENCRYPTED INDEXED-DB
+              </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-white"
           >
-            <X className="w-5 h-5" />
+            <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto touch-scroll p-4 sm:p-6 space-y-5">
-          {/* Hidden File Inputs */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-
-          {/* Ingestion Dropzone & Camera Buttons */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              QR Code Screenshot / Photo
-            </label>
-
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`relative border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center min-h-[140px] ${
-                isDragging
-                  ? 'border-blue-500 bg-blue-950/30'
-                  : imageDataUrl
-                  ? 'border-emerald-500/40 bg-slate-950/60'
-                  : 'border-slate-700 hover:border-slate-600 bg-slate-950/40 hover:bg-slate-950/70'
-              }`}
-            >
-              {isScanning ? (
-                <div className="flex flex-col items-center gap-2 text-blue-400 py-3">
-                  <Loader2 className="w-7 h-7 animate-spin" />
-                  <span className="text-xs font-medium">Scanning & decoding QR Ph with jsQR...</span>
-                </div>
-              ) : imageDataUrl ? (
-                <div className="flex items-center gap-4 w-full">
-                  <div className="p-2 bg-white rounded-xl shadow-md shrink-0">
-                    {rawPayload ? (
-                      <QRCodeSVG value={rawPayload} size={64} level="M" />
-                    ) : (
-                      <img src={imageDataUrl} alt="Preview" className="w-16 h-16 object-cover rounded" />
-                    )}
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span>Image Loaded Successfully</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                      {decodeMessage || 'Ready to save'}
-                    </p>
-                    <span className="inline-block mt-1 text-[10px] text-blue-400 hover:underline">
-                      Tap or drop to replace image
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 py-2">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-300">
-                    <Upload className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-slate-200">
-                      Upload QR screenshot or photo
-                    </span>
-                    <span className="text-xs text-slate-400 block mt-0.5">
-                      Drag & drop here (PNG, JPG, WEBP)
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Cross-Device Action Bar: Camera, Gallery & Clipboard */}
-            <div className="grid grid-cols-3 gap-2 mt-2.5">
-              <button
-                type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                className="min-h-[44px] flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-950/70 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
-              >
-                <Camera className="w-4 h-4 text-emerald-400" />
-                <span>Take Photo</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="min-h-[44px] flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-950/70 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
-              >
-                <Image className="w-4 h-4 text-blue-400" />
-                <span>Gallery</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleClipboardPaste}
-                className="min-h-[44px] flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-950/70 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
-              >
-                <Clipboard className="w-4 h-4 text-amber-400" />
-                <span>Paste</span>
-              </button>
-            </div>
-
-            {/* Decode Status Banner */}
-            {decodeStatus === 'success' && (
-              <div className="mt-2.5 p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/40 flex items-center gap-2 text-xs text-emerald-300">
-                <Shield className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span className="truncate">{decodeMessage}</span>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-space-sm text-xs">
+          {/* Optical Sensor Slot (QR Upload Dropzone) */}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="relative bg-surface-container-lowest rounded-xl p-space-sm border-2 border-dashed border-outline-variant/60 hover:border-primary-fixed transition-colors flex flex-col items-center justify-center cursor-pointer min-h-[110px]"
+          >
+            {isScanning ? (
+              <div className="flex flex-col items-center gap-1.5 text-primary-fixed py-2">
+                <span className="material-symbols-outlined text-[24px] animate-spin">refresh</span>
+                <span className="font-label-sm text-label-sm tracking-wider">
+                  DECODING OPTIC FRAME...
+                </span>
               </div>
-            )}
-            {decodeStatus === 'warning' && (
-              <div className="mt-2.5 p-3 rounded-xl bg-amber-950/40 border border-amber-800/40 flex items-center gap-2 text-xs text-amber-300">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
-                <span>{decodeMessage}</span>
+            ) : imageDataUrl ? (
+              <div className="flex items-center gap-space-sm w-full">
+                <div className="relative w-16 h-16 bg-surface-container-high rounded-lg p-1 border border-outline-variant/40 shrink-0 flex items-center justify-center">
+                  {rawPayload ? (
+                    <div className="bg-white p-0.5 rounded">
+                      <QRCodeSVG value={rawPayload} size={54} level="M" />
+                    </div>
+                  ) : (
+                    <img
+                      src={imageDataUrl}
+                      alt="Preview"
+                      className="w-full h-full object-cover rounded"
+                    />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div
+                    className={`flex items-center gap-1 font-bold font-label-sm text-label-sm ${
+                      decodeStatus === 'error'
+                        ? 'text-error'
+                        : decodeStatus === 'warning'
+                        ? 'text-secondary'
+                        : 'text-primary-fixed'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">
+                      {decodeStatus === 'error'
+                        ? 'error'
+                        : decodeStatus === 'warning'
+                        ? 'warning'
+                        : 'check_circle'}
+                    </span>
+                    <span>
+                      {decodeStatus === 'error'
+                        ? 'PARSE ERROR'
+                        : decodeStatus === 'warning'
+                        ? 'FRAME DETECTED'
+                        : 'QRPH VERIFIED'}
+                    </span>
+                  </div>
+                  <p className="font-label-sm text-[10px] text-on-surface-variant truncate mt-0.5">
+                    {decodeMessage || 'Ready to write to EEPROM'}
+                  </p>
+                  <span className="font-label-sm text-[9px] text-tertiary-fixed underline mt-1 block">
+                    TAP TO REPLACE IMAGE
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-center py-2">
+                <span className="material-symbols-outlined text-[28px] text-outline">
+                  qr_code_scanner
+                </span>
+                <span className="font-label-sm text-label-sm text-on-surface font-bold">
+                  INSERT QR IMAGE SOURCE
+                </span>
+                <span className="font-label-sm text-[10px] text-outline">
+                  TAP TO BROWSE OR DRAG SCREENSHOT
+                </span>
               </div>
             )}
           </div>
 
-          {/* Bank / Provider Selection */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Bank / E-Wallet Provider
+          {/* Hardware Source Actuators (Camera, Gallery, Clipboard) */}
+          <div className="grid grid-cols-3 gap-space-xs font-mono">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="py-1.5 px-1 bg-surface-container-high hover:bg-surface-bright rounded border border-outline-variant/30 text-on-surface flex items-center justify-center gap-1 font-label-sm text-label-sm active:translate-y-0.5 transition-all"
+            >
+              <span className="material-symbols-outlined text-[14px] text-primary-fixed">
+                photo_camera
+              </span>
+              <span>CAMERA</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="py-1.5 px-1 bg-surface-container-high hover:bg-surface-bright rounded border border-outline-variant/30 text-on-surface flex items-center justify-center gap-1 font-label-sm text-label-sm active:translate-y-0.5 transition-all"
+            >
+              <span className="material-symbols-outlined text-[14px] text-tertiary">
+                photo_library
+              </span>
+              <span>GALLERY</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClipboardPaste}
+              className="py-1.5 px-1 bg-surface-container-high hover:bg-surface-bright rounded border border-outline-variant/30 text-on-surface flex items-center justify-center gap-1 font-label-sm text-label-sm active:translate-y-0.5 transition-all"
+            >
+              <span className="material-symbols-outlined text-[14px] text-secondary">
+                content_paste
+              </span>
+              <span>PASTE</span>
+            </button>
+          </div>
+
+          {/* Bank / Provider Selector Ribbon */}
+          <div className="flex flex-col gap-1 mt-1">
+            <label className="font-label-sm text-label-sm text-outline uppercase font-bold">
+              BANK / E-WALLET CARTRIDGE TYPE
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(Object.keys(BANK_CONFIGS) as BankProvider[]).map((pKey) => {
-                const cfg = BANK_CONFIGS[pKey];
-                const isSelected = bank === pKey;
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              {banksList.map((b) => {
+                const isSelected = bank === b;
                 return (
                   <button
-                    key={pKey}
+                    key={b}
                     type="button"
                     onClick={() => {
-                      setBank(pKey);
-                      if (!category || category === 'personal') {
-                        setCategory(cfg.defaultCategory);
-                      }
+                      setBank(b);
                       triggerHaptic('light');
                     }}
-                    className={`min-h-[44px] flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium border text-left transition-all ${
+                    className={`px-2.5 py-1 rounded font-label-sm text-label-sm uppercase font-bold shrink-0 transition-all border ${
                       isSelected
-                        ? `bg-slate-800 ${cfg.borderAccent} text-white shadow-md shadow-black/40 ring-1 ring-white/20`
-                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850'
+                        ? 'bg-primary-container text-on-primary border-primary-fixed'
+                        : 'bg-surface-container text-on-surface-variant border-outline-variant/40 hover:text-on-surface'
                     }`}
                   >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: cfg.accentColor }}
-                    />
-                    <span className="truncate">{cfg.shortName}</span>
+                    {b}
                   </button>
                 );
               })}
             </div>
-
-            {bank === 'other' && (
-              <div className="mt-2">
-                <input
-                  type="text"
-                  placeholder="Custom Bank or Wallet Name (e.g. Landbank, Tonik)"
-                  value={bankCustomName}
-                  onChange={(e) => setBankCustomName(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
-                />
-              </div>
-            )}
           </div>
 
-          {/* Account Details Inputs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Account Holder Name <span className="text-rose-400">*</span>
+          {/* Custom bank name if "other" is selected */}
+          {bank === 'other' && (
+            <div className="flex flex-col gap-1">
+              <label className="font-label-sm text-label-sm text-outline uppercase">
+                CUSTOM INSTITUTION NAME
               </label>
               <input
                 type="text"
-                required
-                placeholder="e.g. Nick Vincent G."
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                placeholder="e.g. Maya Business, Security Bank"
+                value={bankCustomName}
+                onChange={(e) => setBankCustomName(e.target.value)}
+                className="bg-surface-container-lowest border border-outline-variant/80 rounded-lg px-3 py-2 text-on-surface font-mono text-xs focus:outline-none focus:border-primary-fixed"
               />
             </div>
+          )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Account or Mobile No. <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. 0917 123 4567 or 100988887890"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white font-mono placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
-              />
-            </div>
-          </div>
-
-          {/* Category & Favorite */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Account Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as AccountCategory)}
-                className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
-              >
-                <option value="personal">Personal Account</option>
-                <option value="business">Business / Merchant</option>
-                <option value="savings">Savings / Vault</option>
-                <option value="bill-split">Bill Splitting</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2 sm:pt-6">
-              <label className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm font-medium text-slate-300 select-none min-h-[44px]">
-                <input
-                  type="checkbox"
-                  checked={isFavorite}
-                  onChange={(e) => setIsFavorite(e.target.checked)}
-                  className="w-5 h-5 rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900"
-                />
-                <span>Pin to Favorites (Top of Wallet)</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Optional Notes */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-              Notes or Transfer Instructions (Optional)
+          {/* Payee Registered Name */}
+          <div className="flex flex-col gap-1">
+            <label className="font-label-sm text-label-sm text-outline uppercase font-bold">
+              PAYEE NAME // REGISTERED
             </label>
             <input
               type="text"
-              placeholder="e.g. Please screenshot receipt, or Free InstaPay transfers"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+              required
+              placeholder="e.g. JUAN DELA CRUZ"
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              className="bg-surface-container-lowest border border-outline-variant/80 rounded-lg px-3 py-2 text-on-surface font-headline-md text-sm font-bold uppercase focus:outline-none focus:border-primary-fixed"
             />
           </div>
-        </form>
 
-        {/* Footer Buttons */}
-        <div className="flex items-center justify-end gap-3 px-5 py-3.5 border-t border-slate-800 bg-slate-950/60 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="min-h-[44px] px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-emerald-950/30 active:scale-95 transition-all"
-          >
-            {initialCard ? 'Save Changes' : 'Add to Wallet'}
-          </button>
-        </div>
+          {/* Account / Mobile Number */}
+          <div className="flex flex-col gap-1">
+            <label className="font-label-sm text-label-sm text-outline uppercase font-bold">
+              MOBILE / ACCOUNT NUMBER
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. 0917 839 8821"
+              value={accountNumber}
+              onChange={(e) => setAccountNumber(e.target.value)}
+              className="bg-surface-container-lowest border border-outline-variant/80 rounded-lg px-3 py-2 text-on-surface font-mono text-sm tracking-wider font-bold focus:outline-none focus:border-primary-fixed"
+            />
+          </div>
+
+          {/* Channel Category Selector */}
+          <div className="flex flex-col gap-1">
+            <label className="font-label-sm text-label-sm text-outline uppercase font-bold">
+              VAULT CHANNEL
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(['personal', 'business', 'savings'] as AccountCategory[]).map((cat) => {
+                const isSelected = category === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategory(cat)}
+                    className={`py-1.5 rounded font-label-sm text-label-sm uppercase font-bold transition-all border ${
+                      isSelected
+                        ? 'bg-surface-container-highest text-primary-fixed border-primary-fixed-dim/50'
+                        : 'bg-surface-container text-on-surface-variant border-outline-variant/30 hover:text-on-surface'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="flex flex-col gap-1">
+            <label className="font-label-sm text-label-sm text-outline uppercase">
+              CARTRIDGE TAG / NOTES
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Personal allowance, Store counter"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="bg-surface-container-lowest border border-outline-variant/80 rounded-lg px-3 py-2 text-on-surface font-mono text-xs focus:outline-none focus:border-primary-fixed"
+            />
+          </div>
+
+          {/* Action Deck */}
+          <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant/30 mt-1">
+            <button
+              type="submit"
+              className="w-full bg-primary-container text-on-primary font-headline-md text-headline-md font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all active:translate-y-1 uppercase tracking-wider hover:bg-primary-fixed cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">save</span>
+              <span>[ PROGRAM ROM &amp; SAVE ]</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full bg-surface-container-high text-on-surface font-label-sm text-label-sm py-2 rounded-lg border border-outline-variant/30 font-bold uppercase hover:bg-surface-bright"
+            >
+              CANCEL
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

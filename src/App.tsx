@@ -20,7 +20,6 @@ import { BackupSettingsModal } from './components/BackupSettingsModal';
 import { InstallPrompt } from './components/InstallPrompt';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
-import { Lock, KeyRound } from 'lucide-react';
 import { authenticateWithBiometrics, triggerHaptic } from './lib/security';
 import { BottomNav } from './components/BottomNav';
 import type { NavTab } from './components/BottomNav';
@@ -198,22 +197,28 @@ export function App() {
   // Biometric Locked Screen View
   if (isVaultLocked) {
     return (
-      <div className="min-h-screen min-h-[100dvh] bg-fintech-dark flex items-center justify-center p-4 safe-p">
-        <div className="max-w-sm w-full p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 mb-4 shadow-lg shadow-blue-500/20">
-            <Lock className="w-8 h-8" />
+      <div className="min-h-screen min-h-[100dvh] bg-surface text-on-surface flex items-center justify-center p-margin font-mono safe-p">
+        <div className="max-w-sm w-full p-space-lg rounded-2xl bg-surface-container border border-outline-variant/50 shadow-2xl text-center flex flex-col items-center">
+          <div className="w-14 h-14 rounded-xl bg-surface-container-high border border-primary-fixed-dim/40 flex items-center justify-center text-primary-fixed mb-space-sm shadow-[0_0_16px_rgba(0,240,160,0.3)]">
+            <span className="material-symbols-outlined text-[28px]">lock</span>
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">PocketQR Locked</h2>
-          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-            Biometric authentication is required to access your stored payment QR Ph cards.
+
+          <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
+            SECURITY INTERLOCK ENGAGED
+          </span>
+          <h2 className="font-headline-md text-headline-md font-bold text-primary-fixed uppercase tracking-tight mt-1">
+            POCKET•QR LOCKED
+          </h2>
+          <p className="font-body-sm text-body-sm text-on-surface-variant mt-2 font-sans leading-relaxed">
+            Biometric authentication is required to access your stored payment ROM cartridges.
           </p>
 
           <button
             onClick={handleUnlockVault}
-            className="min-h-[44px] mt-6 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-semibold text-sm shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2 active:scale-98 transition-all"
+            className="mt-6 w-full py-3 px-4 rounded-xl bg-primary-container hover:bg-primary-fixed text-on-primary font-headline-md font-bold text-sm shadow-[0_4px_0_0_#006843] active:translate-y-1 transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
           >
-            <KeyRound className="w-4 h-4" />
-            <span>Unlock Vault</span>
+            <span className="material-symbols-outlined text-[20px]">fingerprint</span>
+            <span>AUTHENTICATE &amp; UNLOCK</span>
           </button>
         </div>
       </div>

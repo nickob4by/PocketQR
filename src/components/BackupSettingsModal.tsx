@@ -1,12 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import {
-  X,
-  Download,
-  Upload,
-  RefreshCw,
-  ShieldCheck,
-  HardDrive,
-} from 'lucide-react';
 import { exportBackup, importBackup, resetToSampleCards } from '../lib/storage';
 import { isBiometricsAvailable, authenticateWithBiometrics, triggerHaptic } from '../lib/security';
 
@@ -51,13 +43,13 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
       const a = document.createElement('a');
       const dateStr = new Date().toISOString().split('T')[0];
       a.href = url;
-      a.download = `PocketQR-Backup-${dateStr}.json`;
+      a.download = `PocketQR-EEPROM-Backup-${dateStr}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       triggerHaptic('success');
-      onNotify('Backup Downloaded', 'Keep this file safe to restore on any phone or tablet', 'success');
+      onNotify('EEPROM Backup Exported', 'JSON file downloaded to phone', 'success');
     } catch (e: any) {
       onNotify('Export Failed', e?.message || 'Could not export backup', 'error');
     } finally {
@@ -77,7 +69,7 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
       if (res.success) {
         onReloadCards();
         triggerHaptic('success');
-        onNotify('Backup Restored!', `Successfully restored ${res.count} QR cards`, 'success');
+        onNotify('EEPROM Restored!', `Restored ${res.count} ROM cartridges`, 'success');
         onClose();
       } else {
         onNotify('Restore Failed', res.error || 'Invalid backup file', 'error');
@@ -94,7 +86,7 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
     await resetToSampleCards();
     onReloadCards();
     triggerHaptic('success');
-    onNotify('Sample Cards Loaded', 'Restored GCash, Maya, and RCBC demo cards', 'success');
+    onNotify('Defaults Loaded', 'Restored GCash, Maya, and BPI demo ROMs', 'success');
   };
 
   const toggleBiometrics = async () => {
@@ -104,194 +96,200 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
         setBiometricEnabled(true);
         localStorage.setItem('pocketqr_biometric_enabled', 'true');
         triggerHaptic('success');
-        onNotify('Biometric Lock Enabled', 'Fingerprint / Face ID configured', 'success');
+        onNotify('Biometric Lock Active', 'Fingerprint / Face ID interlock engaged', 'success');
       } else {
-        onNotify('Biometric Check Skipped', 'Device biometrics was cancelled or not set up', 'info');
+        onNotify('Biometric Skipped', 'Device biometrics was cancelled or not enrolled', 'info');
       }
     } else {
       setBiometricEnabled(false);
       localStorage.setItem('pocketqr_biometric_enabled', 'false');
       triggerHaptic('light');
-      onNotify('Biometric Lock Disabled', '', 'info');
+      onNotify('Biometric Lock Disengaged', '', 'info');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-200 safe-p">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] modal-overscroll-contain">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950/50 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
-              <HardDrive className="w-4 h-4 text-emerald-400" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
+      <div className="relative w-full max-w-md bg-surface text-on-surface rounded-2xl border border-outline-variant/50 shadow-2xl p-space-md flex flex-col font-mono select-none my-auto">
+        {/* Top Hardware Telemetry Strip */}
+        <div className="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm pb-2 border-b border-outline-variant/30">
+          <div className="flex items-center gap-space-xs">
+            <span className="text-primary-fixed uppercase font-bold">SYS_CONFIG</span>
+            <span className="text-outline">::</span>
+            <span className="text-tertiary">SLOTS [{String(cardCount).padStart(2, '0')}/16]</span>
+          </div>
+          <div className="flex items-center gap-space-xs text-primary">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+            <span>INDEXED-DB</span>
+          </div>
+        </div>
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between mt-2 mb-3">
+          <div className="flex items-center gap-space-sm">
+            <div className="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-primary-fixed">
+              <span className="material-symbols-outlined text-[18px]">tune</span>
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-white">Vault Settings & Backup</h2>
-              <p className="text-xs text-slate-400">IndexedDB Local Storage • 100% Private</p>
+              <h2 className="font-headline-md text-headline-md tracking-tight text-on-surface uppercase font-bold text-sm sm:text-base">
+                SYSTEM CONFIGURATION
+              </h2>
+              <p className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
+                HARDWARE PARAMETERS &amp; MEMORY
+              </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-white"
           >
-            <X className="w-5 h-5" />
+            <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto touch-scroll p-4 sm:p-6 space-y-6">
-          {/* Privacy Guarantee Card */}
-          <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-800/40 flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-            <div className="text-xs sm:text-sm text-slate-300">
-              <span className="font-semibold text-emerald-300 block mb-1">
-                Zero Cloud Tracking & Complete Privacy
-              </span>
-              All QR codes, account numbers, and merchant payloads are stored 100% locally in your
-              device's browser database (IndexedDB). No analytics, no server uploads, no cookies.
+        {/* Settings Body */}
+        <div className="flex flex-col gap-space-md text-xs">
+          {/* Bento 1: Privacy Guarantee Notice */}
+          <div className="bg-surface-container-low p-space-sm rounded-xl border border-outline-variant/30 flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">
+              shield
+            </span>
+            <div className="font-sans leading-relaxed text-[11px] text-on-surface-variant">
+              <strong className="text-primary-fixed block font-mono text-xs uppercase mb-0.5">
+                ZERO CLOUD TELEMETRY
+              </strong>
+              All QR codes, cryptographic EMVCo payloads, and account keys are stored 100% locally on this hardware device (IndexedDB). Zero external servers.
             </div>
           </div>
 
-          {/* Privacy & Display Settings */}
-          <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-              Privacy & Presentation
-            </h3>
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                <div>
-                  <span className="text-sm font-semibold text-slate-200 block">
-                    Mask Account Numbers
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    Hide middle digits (e.g. 0917 •••• 123) until tapped
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={onTogglePrivacyMask}
-                  className={`min-h-[44px] w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${
-                    privacyMask ? 'bg-blue-600' : 'bg-slate-800'
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                      privacyMask ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
+          {/* Bento 2: Display & Privacy Interlocks */}
+          <div className="flex flex-col gap-1.5">
+            <span className="font-label-sm text-label-sm text-outline uppercase font-bold">
+              DISPLAY &amp; PRIVACY INTERLOCKS
+            </span>
 
-              {/* Biometrics Toggle */}
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-semibold text-slate-200">
-                      Biometric / Passkey Lock
+            {/* Mask Account Numbers Toggle */}
+            <div className="flex items-center justify-between p-space-sm bg-surface-container rounded-lg border border-outline-variant/30">
+              <div className="flex flex-col">
+                <span className="font-headline-md text-headline-md text-sm font-bold text-on-surface">
+                  MASK ACCOUNT DIGITS
+                </span>
+                <span className="font-label-sm text-[10px] text-outline mt-0.5">
+                  Obscure middle characters (0917 •••• 821)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onTogglePrivacyMask}
+                className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-0.5 border ${
+                  privacyMask
+                    ? 'bg-primary-container border-primary-fixed'
+                    : 'bg-surface-container-high border-outline-variant'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full transition-transform ${
+                    privacyMask
+                      ? 'translate-x-6 bg-on-primary'
+                      : 'translate-x-0 bg-outline'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Biometric Lock Toggle */}
+            <div className="flex items-center justify-between p-space-sm bg-surface-container rounded-lg border border-outline-variant/30">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="font-headline-md text-headline-md text-sm font-bold text-on-surface">
+                    BIOMETRIC HARDWARE LOCK
+                  </span>
+                  {biometricsSupported && (
+                    <span className="bg-primary-container text-on-primary font-label-sm text-[8px] px-1 py-0.2 rounded font-bold">
+                      ACTIVE
                     </span>
-                    {biometricsSupported && (
-                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-medium">
-                        Device Supported
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs text-slate-400">
-                    Require Touch ID / Face ID / Android Biometrics to open vault
-                  </span>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={toggleBiometrics}
-                  className={`min-h-[44px] w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${
-                    biometricEnabled ? 'bg-emerald-600' : 'bg-slate-800'
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                      biometricEnabled ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+                <span className="font-label-sm text-[10px] text-outline mt-0.5">
+                  Require Fingerprint / Face ID to open vault
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={toggleBiometrics}
+                className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-0.5 border ${
+                  biometricEnabled
+                    ? 'bg-primary-container border-primary-fixed'
+                    : 'bg-surface-container-high border-outline-variant'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full transition-transform ${
+                    biometricEnabled
+                      ? 'translate-x-6 bg-on-primary'
+                      : 'translate-x-0 bg-outline'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 
-          {/* Backup & Portability */}
-          <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-              Backup & Portability
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Export Button */}
+          {/* Bento 3: EEPROM Memory Backup & Restore */}
+          <div className="flex flex-col gap-1.5">
+            <span className="font-label-sm text-label-sm text-outline uppercase font-bold">
+              EEPROM BACKUP &amp; RESTORATION
+            </span>
+            <div className="grid grid-cols-2 gap-space-xs">
               <button
                 type="button"
                 onClick={handleExport}
                 disabled={isExporting}
-                className="min-h-[48px] flex items-center gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 hover:bg-slate-850 text-left transition-all group"
+                className="py-2.5 px-2 bg-surface-container hover:bg-surface-bright rounded-lg border border-outline-variant/40 flex items-center justify-center gap-1.5 font-label-sm text-label-sm font-bold text-tertiary active:translate-y-0.5 transition-all cursor-pointer"
               >
-                <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 shrink-0">
-                  <Download className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-200 block">Export Backup</span>
-                  <span className="text-[11px] text-slate-400">Save {cardCount} cards to .JSON</span>
-                </div>
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                <span>{isExporting ? 'EXPORTING...' : 'EXPORT JSON'}</span>
               </button>
 
-              {/* Import Button */}
-              <label className="min-h-[48px] flex items-center gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 hover:bg-slate-850 text-left transition-all group cursor-pointer">
+              <label className="py-2.5 px-2 bg-surface-container hover:bg-surface-bright rounded-lg border border-outline-variant/40 flex items-center justify-center gap-1.5 font-label-sm text-label-sm font-bold text-primary-fixed active:translate-y-0.5 transition-all cursor-pointer">
+                <span className="material-symbols-outlined text-[16px]">upload</span>
+                <span>{isImporting ? 'PARSING...' : 'RESTORE JSON'}</span>
                 <input
                   type="file"
                   accept=".json,application/json"
                   onChange={handleImport}
-                  disabled={isImporting}
                   className="hidden"
                 />
-                <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 shrink-0">
-                  <Upload className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-200 block">Restore Backup</span>
-                  <span className="text-[11px] text-slate-400">Import .JSON file</span>
-                </div>
               </label>
             </div>
           </div>
 
-          {/* Manage Sample Data */}
-          <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-              Data Management
-            </h3>
-            <div className="space-y-2">
+          {/* Bento 4: Factory Reset / Sample ROMs */}
+          <div className="flex flex-col gap-1 pt-1 border-t border-outline-variant/30">
+            <div className="flex items-center justify-between">
+              <span className="font-label-sm text-label-sm text-outline uppercase font-bold">
+                DIAGNOSTICS &amp; SAMPLES
+              </span>
               <button
                 type="button"
                 onClick={handleResetSamples}
-                className="min-h-[48px] w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:bg-slate-850 text-left transition-colors"
+                className="text-secondary hover:text-secondary-fixed text-[11px] font-bold underline"
               >
-                <div className="flex items-center gap-2.5">
-                  <RefreshCw className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs sm:text-sm font-medium text-slate-300">
-                    Reload Philippine Demo Cards (GCash, Maya, RCBC)
-                  </span>
-                </div>
-                <span className="text-[10px] text-slate-500 uppercase font-mono">Demo</span>
+                [ LOAD DEFAULT SAMPLES ]
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-800 bg-slate-950/60 shrink-0">
-          <span className="text-[11px] text-slate-500">PocketQR v1.0.0 • Local PWA</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[44px] px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors"
-          >
-            Done
-          </button>
+          {/* Done / Close Button */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full bg-primary-container text-on-primary font-headline-md text-headline-md font-bold py-2.5 rounded-lg uppercase tracking-wider hover:bg-primary-fixed active:translate-y-0.5 transition-all cursor-pointer"
+            >
+              CLOSE CONFIG
+            </button>
+          </div>
         </div>
       </div>
     </div>
