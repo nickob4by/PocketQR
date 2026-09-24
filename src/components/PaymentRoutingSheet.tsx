@@ -225,10 +225,10 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
-      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-between py-2 sm:py-4 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
-        {/* Header */}
-        <header className="sticky top-0 w-full z-10 pt-safe bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30 pb-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface sm:bg-surface-container-lowest/80 sm:backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-md bg-surface text-on-surface flex flex-col sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl overflow-hidden">
+        {/* Header - Fixed Flex Sibling */}
+        <header className="flex-shrink-0 w-full z-30 pt-safe bg-surface border-b border-outline-variant/30 px-margin py-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-space-sm">
               <button
@@ -260,7 +260,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
         </header>
 
         {/* Main Content Scrollable Area */}
-        <div className="flex flex-col w-full py-3 space-y-space-sm select-none">
+        <div className="flex-1 overflow-y-auto px-margin py-3 space-y-space-sm select-none">
           {/* Status HUD Tape */}
           <div className="flex items-center justify-between font-mono font-label-sm text-label-sm">
             <div className="flex items-center gap-space-xs">
@@ -498,7 +498,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
         </div>
 
         {/* Action Deck (Thumb Zone) */}
-        <div className="flex flex-col gap-space-xs pt-2 pb-safe border-t border-outline-variant/30">
+        <div className="flex-shrink-0 flex flex-col gap-space-xs px-margin pt-2 pb-safe border-t border-outline-variant/30 bg-surface">
           <button
             onClick={handleLaunchPayment}
             disabled={isDispatching}

@@ -137,10 +137,10 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface animate-in fade-in duration-200 overflow-y-auto safe-p">
-      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-start gap-2 py-2 sm:py-3 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
-        {/* Header */}
-        <header className="sticky top-0 w-full z-10 pt-safe bg-surface border-b border-outline-variant/30 pb-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface sm:bg-surface-container-lowest/80 sm:backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-md bg-surface text-on-surface flex flex-col sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl overflow-hidden">
+        {/* Header - Fixed Flex Sibling, strictly above scrollable content */}
+        <header className="flex-shrink-0 w-full z-30 pt-safe bg-surface border-b border-outline-variant/30 px-margin py-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-space-sm">
               <button
@@ -173,8 +173,8 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
           </div>
         </header>
 
-        {/* Main Content Area */}
-        <div className="flex flex-col w-full pt-1 pb-2 gap-2.5 select-none font-mono">
+        {/* Scrollable Main Content Area */}
+        <div className="flex-1 overflow-y-auto px-margin py-3 pb-safe flex flex-col gap-2.5 select-none font-mono">
           {/* Unified Clean Cashier Scan Card */}
           <div
             className={`relative bg-surface-container-high p-space-md rounded-xl shadow-xl border border-outline-variant/40 flex flex-col items-center overflow-hidden transition-transform duration-300 ${
@@ -185,7 +185,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
             <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#003822_1px,transparent_1px)] [background-size:6px_6px]"></div>
 
             {/* Station / Rail Pill */}
-            <div className="relative z-10 w-full flex items-center justify-between bg-surface-container-lowest text-on-surface px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
+            <div className="relative w-full flex items-center justify-between bg-surface-container-lowest text-on-surface px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
               <div className="flex items-center gap-space-xs">
                 <div className="w-4 h-4 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-bold text-[9px] font-label-sm">
                   ✓
@@ -199,60 +199,60 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
               </span>
             </div>
 
-              {/* High-Fidelity Tactical QR Display */}
-              <div className="relative z-10 my-space-md p-space-md bg-white rounded-xl shadow-lg flex flex-col items-center justify-center">
-                {card.rawPayload ? (
-                  <QRCodeSVG
-                    id="presentation-qr-svg"
-                    value={card.rawPayload}
-                    size={220}
-                    level="M"
-                    includeMargin={false}
-                  />
-                ) : (
-                  <img
-                    src={card.imageDataUrl}
-                    alt={card.accountName}
-                    className="w-56 h-56 object-contain"
-                  />
-                )}
-              </div>
+            {/* High-Fidelity Tactical QR Display */}
+            <div className="relative my-space-md p-space-md bg-white rounded-xl shadow-lg flex flex-col items-center justify-center">
+              {card.rawPayload ? (
+                <QRCodeSVG
+                  id="presentation-qr-svg"
+                  value={card.rawPayload}
+                  size={220}
+                  level="M"
+                  includeMargin={false}
+                />
+              ) : (
+                <img
+                  src={card.imageDataUrl}
+                  alt={card.accountName}
+                  className="w-56 h-56 object-contain"
+                />
+              )}
+            </div>
 
-              {/* Scan Alignment Watermark */}
-              <div className="mt-space-xs flex items-center justify-between w-full px-space-xs text-[10px] text-outline">
-                <span className="tracking-wider">STANDARDIZED QRPH P2P</span>
-                <span className="text-inverse-primary font-bold tracking-wider">PH-NPS</span>
-              </div>
+            {/* Scan Alignment Watermark */}
+            <div className="mt-space-xs flex items-center justify-between w-full px-space-xs text-[10px] text-outline">
+              <span className="tracking-wider">STANDARDIZED QRPH P2P</span>
+              <span className="text-inverse-primary font-bold tracking-wider">PH-NPS</span>
+            </div>
 
-              {/* Payee Credentials Deck */}
-              <div className="relative z-10 w-full flex flex-col items-center text-center space-y-1 mt-2">
-                <span className="font-label-sm text-[9px] text-outline tracking-wider uppercase font-bold">
-                  PAYEE NAME // VERIFIED REGISTERED
+            {/* Payee Credentials Deck */}
+            <div className="relative w-full flex flex-col items-center text-center space-y-1 mt-2">
+              <span className="font-label-sm text-[9px] text-outline tracking-wider uppercase font-bold">
+                PAYEE NAME // VERIFIED REGISTERED
+              </span>
+              <h2 className="font-headline-md text-headline-md text-on-surface font-bold tracking-tight text-lg">
+                {card.accountName}
+              </h2>
+
+              {/* Mobile Target Pill with Tactile Copy Action */}
+              <div className="mt-space-xs flex items-center gap-space-xs bg-surface-container-lowest px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
+                <span className="material-symbols-outlined text-[16px] text-primary">
+                  smartphone
                 </span>
-                <h2 className="font-headline-md text-headline-md text-on-surface font-bold tracking-tight text-lg">
-                  {card.accountName}
-                </h2>
-
-                {/* Mobile Target Pill with Tactile Copy Action */}
-                <div className="mt-space-xs flex items-center gap-space-xs bg-surface-container-lowest px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
-                  <span className="material-symbols-outlined text-[16px] text-primary">
-                    smartphone
+                <span className="font-label-md text-label-md text-on-surface font-bold tracking-wider text-xs">
+                  {formatAccountNumber(card.accountNumber, false)}
+                </span>
+                <button
+                  onClick={handleCopyNumber}
+                  className="ml-space-xs bg-surface-container-high hover:bg-surface-bright text-primary font-label-sm text-label-sm px-space-sm py-0.5 rounded transition-transform active:translate-y-0.5 flex items-center gap-1 font-bold cursor-pointer text-[10px]"
+                >
+                  <span className="material-symbols-outlined text-[13px]">
+                    {copiedNumber ? 'check' : 'content_copy'}
                   </span>
-                  <span className="font-label-md text-label-md text-on-surface font-bold tracking-wider text-xs">
-                    {formatAccountNumber(card.accountNumber, false)}
-                  </span>
-                  <button
-                    onClick={handleCopyNumber}
-                    className="ml-space-xs bg-surface-container-high hover:bg-surface-bright text-primary font-label-sm text-label-sm px-space-sm py-0.5 rounded transition-transform active:translate-y-0.5 flex items-center gap-1 font-bold cursor-pointer text-[10px]"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">
-                      {copiedNumber ? 'check' : 'content_copy'}
-                    </span>
-                    <span>{copiedNumber ? '[ COPIED ]' : '[ COPY ]'}</span>
-                  </button>
-                </div>
+                  <span>{copiedNumber ? '[ COPIED ]' : '[ COPY ]'}</span>
+                </button>
               </div>
             </div>
+          </div>
 
           {/* Physical Neo-Brutalist Actuator Cluster (Action Deck) */}
           <div className="flex flex-col space-y-space-sm pt-space-xs">
