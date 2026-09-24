@@ -40,7 +40,10 @@ export const QRCard: React.FC<QRCardProps> = ({
   };
 
   return (
-    <div className="relative bg-surface-container-high rounded-xl p-space-md shadow-[0_4px_0_0_#0b0e15] border border-outline-variant/40 active:translate-y-0.5 transition-transform flex flex-col gap-space-sm select-none">
+    <div
+      onClick={() => onPresent(card)}
+      className="relative bg-surface-container-high rounded-xl p-space-md shadow-[0_4px_0_0_#0b0e15] border border-outline-variant/40 active:translate-y-0.5 transition-all flex flex-col gap-space-sm select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-[0_4px_12px_rgba(0,240,160,0.15)] group/card"
+    >
       {/* Molded Inner Bezel Header Strip */}
       <div className="flex items-center justify-between pb-1 bg-surface-container-lowest px-2 py-1 rounded-DEFAULT border border-outline-variant/20">
         <div className="flex items-center gap-space-xs font-label-sm text-label-sm">
@@ -132,7 +135,10 @@ export const QRCard: React.FC<QRCardProps> = ({
       <div className="flex items-center gap-space-md">
         {/* Scannable Micro-Screen Thumbnail */}
         <div
-          onClick={() => onPresent(card)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPresent(card);
+          }}
           title="Tap to enlarge for cashier scanning"
           className="relative w-20 h-20 bg-surface-container-lowest rounded-DEFAULT p-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border border-outline-variant/30 flex-shrink-0 flex items-center justify-center cursor-pointer group/qr"
         >
@@ -169,17 +175,20 @@ export const QRCard: React.FC<QRCardProps> = ({
           <div>
             <button
               type="button"
-              onClick={() => onEdit(card)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(card);
+              }}
               title="Tap to rename"
-              className="flex items-center gap-space-xs text-left group transition-colors max-w-full"
+              className="flex items-center gap-space-xs text-left group/edit transition-colors max-w-full"
             >
-              <span className="font-headline-md text-headline-md text-primary tracking-tight truncate border-b border-primary/30 group-hover:border-primary font-bold">
+              <span className="font-headline-md text-headline-md text-primary tracking-tight truncate border-b border-primary/30 group-hover/edit:border-primary font-bold">
                 {card.accountName}
               </span>
               <span className="material-symbols-outlined text-primary text-[14px]">
                 verified
               </span>
-              <span className="material-symbols-outlined text-outline text-[13px] opacity-70 group-hover:text-primary transition-colors">
+              <span className="material-symbols-outlined text-outline text-[13px] opacity-70 group-hover/edit:text-primary transition-colors">
                 edit
               </span>
             </button>
@@ -225,7 +234,10 @@ export const QRCard: React.FC<QRCardProps> = ({
             </span>
 
             <button
-              onClick={() => onPresent(card)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPresent(card);
+              }}
               className="flex items-center gap-1 px-2.5 py-1 bg-primary text-on-primary font-label-sm text-label-sm rounded-DEFAULT shadow-[0_2px_0_0_#005234] active:translate-y-0.5 transition-transform font-bold font-mono hover:bg-primary-fixed cursor-pointer"
             >
               <span className="material-symbols-outlined text-[14px]">fullscreen</span>

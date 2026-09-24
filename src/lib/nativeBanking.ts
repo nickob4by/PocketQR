@@ -13,6 +13,19 @@ interface BankingAppPluginInterface {
   openNativeChooser(options: {
     apps: Array<{ id: string; androidPackage: string; scheme: string }>;
   }): Promise<{ success: boolean }>;
+  saveImageToGallery(options: {
+    base64: string;
+    fileName?: string;
+  }): Promise<{ success: boolean; uri?: string }>;
+  copyImageToClipboard(options: {
+    base64?: string;
+    text?: string;
+  }): Promise<{ success: boolean }>;
+  shareImage(options: {
+    base64: string;
+    title?: string;
+    text?: string;
+  }): Promise<{ success: boolean }>;
 }
 
 const BankingApp = registerPlugin<BankingAppPluginInterface>('BankingApp');
@@ -89,6 +102,57 @@ export async function openNativeSystemChooser(apps: PayingBankApp[]): Promise<bo
     return res.success;
   } catch (err) {
     console.warn('Native openNativeChooser failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Saves a base64 image directly to Android's MediaStore (Pictures/PocketQR)
+ * so it immediately appears in the photo gallery / Recent Photos for banking apps.
+ */
+export async function saveImageToGalleryNative(base64: string, fileName?: string): Promise<{ success: boolean; uri?: string }> {
+  if (!isNativeAndroid()) {
+    return { success: false };
+  }
+
+  try {
+    return await BankingApp.saveImageToGallery({ base64, fileName });
+  } catch (err) {
+    console.warn('Native saveImageToGallery failed:', err);
+    return { success: false };
+  }
+}
+
+/**
+ * Copies a QR image and/or text to the native Android clipboard.
+ */
+export async function copyImageToClipboardNative(base64?: string, text?: string): Promise<boolean> {
+  if (!isNativeAndroid()) {
+    return false;
+  }
+
+  try {
+    const res = await BankingApp.copyImageToClipboard({ base64, text });
+    return res.success;
+  } catch (err) {
+    console.warn('Native copyImageToClipboard failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Launches Android's native share sheet with the QR image.
+ */
+export async function shareImageNative(base64: string, title?: string, text?: string): Promise<boolean> {
+  if (!isNativeAndroid()) {
+    return false;
+  }
+
+  try {
+    const res = await BankingApp.shareImage({ base64, title, text });
+    return res.success;
+  } catch (err) {
+    console.warn('Native shareImage failed:', err);
     return false;
   }
 }

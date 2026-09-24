@@ -14,6 +14,8 @@ import { CategoryFilter } from './components/CategoryFilter';
 import type { FilterCategory } from './components/CategoryFilter';
 import { QRCard } from './components/QRCard';
 import { PresentationModal } from './components/PresentationModal';
+import { PaymentRoutingSheet } from './components/PaymentRoutingSheet';
+import { parseQRPhPayload } from './lib/emvcoParser';
 import { AddQRModal } from './components/AddQRModal';
 import { ScanToPayModal } from './components/ScanToPayModal';
 import { ConfigView } from './components/ConfigView';
@@ -35,6 +37,7 @@ export function App() {
 
   // Modals
   const [presentationCard, setPresentationCard] = useState<QRCardItem | null>(null);
+  const [routingCard, setRoutingCard] = useState<QRCardItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScanToPayOpen, setIsScanToPayOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<QRCardItem | null>(null);
@@ -411,8 +414,36 @@ export function App() {
       <PresentationModal
         card={presentationCard}
         onClose={() => setPresentationCard(null)}
+        onPayWithBank={(c) => {
+          setPresentationCard(null);
+          setRoutingCard(c);
+        }}
         onNotify={addToast}
       />
+
+      {/* Payment Routing Sheet from Vault Card */}
+      {routingCard && (
+        <PaymentRoutingSheet
+          parsed={
+            routingCard.rawPayload
+              ? parseQRPhPayload(routingCard.rawPayload)
+              : {
+                  isValid: true,
+                  isQRPh: false,
+                  merchantName: routingCard.accountName,
+                  accountNumber: routingCard.accountNumber,
+                  bankName: routingCard.bankCustomName || routingCard.bank,
+                  detectedBank: routingCard.bank,
+                  tags: {},
+                }
+          }
+          rawPayload={routingCard.rawPayload || ''}
+          imageDataUrl={routingCard.imageDataUrl}
+          onClose={() => setRoutingCard(null)}
+          onSaveToWallet={handleSaveCard}
+          onNotify={addToast}
+        />
+      )}
 
       {/* Scan to Pay Live Camera Scanner */}
       <ScanToPayModal

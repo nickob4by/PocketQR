@@ -222,7 +222,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
         <div className="grid grid-cols-3 gap-space-xs pt-space-xs bg-surface-container-lowest/80 rounded-lg p-space-xs border border-outline-variant/20">
           <div className="flex flex-col p-1.5 rounded bg-surface-container">
             <span className="text-on-surface-variant font-label-sm text-label-sm">KERNEL</span>
-            <span className="text-primary-fixed font-label-md text-label-md truncate">v1.0.10-APK</span>
+            <span className="text-primary-fixed font-label-md text-label-md truncate">v1.0.11-APK</span>
           </div>
           <div className="flex flex-col p-1.5 rounded bg-surface-container">
             <span className="text-on-surface-variant font-label-sm text-label-sm">SRAM USED</span>

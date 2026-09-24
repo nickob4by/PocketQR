@@ -4,6 +4,7 @@ import type { ParsedEMVCo } from '../lib/emvcoParser';
 import { parseQRPhPayload } from '../lib/emvcoParser';
 import { decodeQRCode, fileToDataUrl } from '../lib/qrDecoder';
 import { triggerHaptic } from '../lib/security';
+import { copyQRImageToClipboard } from '../lib/qrImageUtils';
 import { PaymentRoutingSheet } from './PaymentRoutingSheet';
 import type { QRCardItem } from '../types/qr';
 
@@ -128,9 +129,16 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
         imageDataUrl: imgDataUrl,
       });
 
+      // Auto-copy QR image and account number to clipboard immediately upon scan
+      copyQRImageToClipboard({
+        rawPayload: payload,
+        imageDataUrl: imgDataUrl,
+        textFallback: parsed.accountNumber || payload,
+      }).catch(() => {});
+
       onNotify(
         'QR Code Scanned!',
-        parsed.merchantName ? `Payee: ${parsed.merchantName}` : 'Ready to select paying bank',
+        parsed.merchantName ? `Payee: ${parsed.merchantName} (QR copied)` : 'QR image copied to clipboard',
         'success'
       );
       setIsProcessing(false);

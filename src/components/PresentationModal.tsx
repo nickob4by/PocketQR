@@ -3,20 +3,30 @@ import { QRCodeSVG } from 'qrcode.react';
 import type { QRCardItem } from '../types/qr';
 import { formatAccountNumber } from '../lib/emvcoParser';
 import { triggerHaptic } from '../lib/security';
+import {
+  saveQRToGallery,
+  copyQRImageToClipboard,
+  shareQRImage,
+} from '../lib/qrImageUtils';
 
 interface PresentationModalProps {
   card: QRCardItem | null;
   onClose: () => void;
+  onPayWithBank?: (card: QRCardItem) => void;
   onNotify: (title: string, description?: string, type?: 'success' | 'info' | 'error') => void;
 }
 
 export const PresentationModal: React.FC<PresentationModalProps> = ({
   card,
   onClose,
+  onPayWithBank,
   onNotify,
 }) => {
   const [isRotated, setIsRotated] = useState(false);
   const [copiedNumber, setCopiedNumber] = useState(false);
+  const [copiedQR, setCopiedQR] = useState(false);
+  const [savedToGallery, setSavedToGallery] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const wakeLockRef = useRef<any>(null);
 
@@ -77,39 +87,53 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
     setTimeout(() => setCopiedNumber(false), 2000);
   };
 
-  const handleSaveToDevice = () => {
-    try {
-      const link = document.createElement('a');
-      link.download = `PocketQR_${card.accountName.replace(/\s+/g, '_')}_${card.bank}.png`;
-      link.href = card.imageDataUrl || '';
-      if (!card.imageDataUrl && card.rawPayload) {
-        // Can convert SVG to data URL or fallback
-        const svg = document.getElementById('presentation-qr-svg');
-        if (svg) {
-          const svgData = new XMLSerializer().serializeToString(svg);
-          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-          link.href = URL.createObjectURL(svgBlob);
-          link.download = `PocketQR_${card.accountName.replace(/\s+/g, '_')}_${card.bank}.svg`;
-        }
-      }
-      link.click();
+  const handleSaveToGallery = async () => {
+    setIsSaving(true);
+    triggerHaptic('light');
+    const res = await saveQRToGallery({
+      rawPayload: card.rawPayload,
+      imageDataUrl: card.imageDataUrl,
+      accountName: card.accountName,
+    });
+    setIsSaving(false);
+
+    if (res.success) {
+      setSavedToGallery(true);
       triggerHaptic('success');
-      onNotify('Saved to Device', 'QR Code image downloaded to phone', 'success');
-    } catch {
-      onNotify('Save Error', 'Could not save QR image', 'error');
+      onNotify('Saved to Recent Photos!', 'QR Image is ready to upload in banking apps', 'success');
+    } else {
+      onNotify('Save Failed', res.message, 'error');
+    }
+  };
+
+  const handleCopyQRImage = async () => {
+    triggerHaptic('light');
+    const res = await copyQRImageToClipboard({
+      rawPayload: card.rawPayload,
+      imageDataUrl: card.imageDataUrl,
+      textFallback: card.accountNumber,
+    });
+
+    if (res.success) {
+      setCopiedQR(true);
+      triggerHaptic('success');
+      onNotify('QR Copied!', 'QR Image & details copied to clipboard', 'success');
+      setTimeout(() => setCopiedQR(false), 2500);
+    } else {
+      onNotify('Copy Failed', res.message, 'error');
     }
   };
 
   const handleShare = async () => {
     triggerHaptic('light');
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `PocketQR - ${card.accountName} (${bankName})`,
-          text: `Payee: ${card.accountName}\nBank: ${bankName}\nAccount: ${card.accountNumber}`,
-        });
-      } catch {}
-    } else {
+    const shared = await shareQRImage({
+      rawPayload: card.rawPayload,
+      imageDataUrl: card.imageDataUrl,
+      title: `PocketQR - ${card.accountName} (${bankName})`,
+      text: `Payee: ${card.accountName}\nBank: ${bankName}\nAccount: ${card.accountNumber}`,
+    });
+
+    if (!shared) {
       navigator.clipboard.writeText(
         `Payee: ${card.accountName}\nBank: ${bankName}\nAccount: ${card.accountNumber}`
       );
@@ -127,7 +151,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
               <button
                 onClick={onClose}
                 aria-label="Return"
-                className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface active:translate-y-0.5 transition-transform border border-outline-variant/40"
+                className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface active:translate-y-0.5 transition-transform border border-outline-variant/40 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">arrow_back</span>
               </button>
@@ -140,13 +164,13 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
               <button
                 onClick={() => setIsRotated(!isRotated)}
                 title="Rotate 180° for Cashier Facing"
-                className="p-2 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface active:translate-y-0.5 transition-transform"
+                className="p-2 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface active:translate-y-0.5 transition-transform cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">screen_rotation</span>
               </button>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface"
+                className="p-2 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
@@ -160,11 +184,11 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
           <div className="flex items-center justify-between bg-surface-container-low px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
             <div className="flex items-center gap-space-xs">
               <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
-              <span className="font-label-sm text-label-sm text-primary tracking-widest uppercase font-bold">
+              <span className="font-label-sm text-label-sm text-primary tracking-widest uppercase font-bold text-[11px]">
                 RX // CARTRIDGE LOADED
               </span>
             </div>
-            <div className="flex items-center gap-space-xs bg-surface-container-highest px-space-sm py-0.5 rounded-full border border-outline-variant/40">
+            <div className="flex items-center gap-space-xs bg-surface-container-highest px-space-sm py-0.5 rounded-full border border-outline-variant/40 text-[10px]">
               <span className="material-symbols-outlined text-[14px] text-secondary">
                 light_mode
               </span>
@@ -197,22 +221,22 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
             {/* Inner Bezel Header Deck */}
             <div className="flex items-center justify-between px-space-xs pb-space-sm border-b border-outline-variant/20 mb-2">
               <div className="flex items-center gap-space-xs">
-                <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold">
+                <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold text-xs">
                   SLOT 01
                 </span>
-                <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-1.5 py-0.5 rounded-DEFAULT font-bold">
+                <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-1.5 py-0.5 rounded-DEFAULT font-bold text-[10px]">
                   QRPh 2.0
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="font-label-sm text-label-sm text-outline tracking-tight">
+                <span className="font-label-sm text-label-sm text-outline tracking-tight text-[10px]">
                   FREQ: 2.4GHz
                 </span>
                 <span className="material-symbols-outlined text-[15px] text-primary">nfc</span>
               </div>
             </div>
 
-            {/* LCD Recessed Screen (High Reflectance Paper/Matrix Style) */}
+            {/* LCD Recessed Screen */}
             <div className="relative bg-surface-bright p-space-md rounded-lg shadow-inner overflow-hidden flex flex-col items-center border border-outline-variant/30">
               {/* Dot-Matrix Decorative Mesh Backdrop */}
               <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#003822_1px,transparent_1px)] [background-size:6px_6px]"></div>
@@ -223,11 +247,11 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                   <div className="w-4 h-4 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-bold text-[9px] font-label-sm">
                     ✓
                   </div>
-                  <span className="font-headline-md text-label-md text-tertiary tracking-wider font-bold">
+                  <span className="font-headline-md text-label-md text-tertiary tracking-wider font-bold text-xs">
                     {bankName} {card.category.toUpperCase()}
                   </span>
                 </div>
-                <span className="font-label-sm text-label-sm text-primary uppercase font-bold tracking-wider">
+                <span className="font-label-sm text-label-sm text-primary uppercase font-bold tracking-wider text-[10px]">
                   SYNCED
                 </span>
               </div>
@@ -271,12 +295,12 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                   <span className="material-symbols-outlined text-[16px] text-primary">
                     smartphone
                   </span>
-                  <span className="font-label-md text-label-md text-on-surface font-bold tracking-wider">
+                  <span className="font-label-md text-label-md text-on-surface font-bold tracking-wider text-xs">
                     {formatAccountNumber(card.accountNumber, false)}
                   </span>
                   <button
                     onClick={handleCopyNumber}
-                    className="ml-space-xs bg-surface-container-high hover:bg-surface-bright text-primary font-label-sm text-label-sm px-space-sm py-0.5 rounded transition-transform active:translate-y-0.5 flex items-center gap-1 font-bold cursor-pointer"
+                    className="ml-space-xs bg-surface-container-high hover:bg-surface-bright text-primary font-label-sm text-label-sm px-space-sm py-0.5 rounded transition-transform active:translate-y-0.5 flex items-center gap-1 font-bold cursor-pointer text-[10px]"
                   >
                     <span className="material-symbols-outlined text-[13px]">
                       {copiedNumber ? 'check' : 'content_copy'}
@@ -288,48 +312,64 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
             </div>
           </div>
 
-          {/* Industrial Advisory Notice Bento */}
-          <div className="bg-surface-container-low p-space-md rounded-xl flex items-start gap-space-md shadow-sm border border-outline-variant/30 text-xs">
-            <div className="p-space-xs bg-surface-container-highest rounded-lg text-primary flex items-center justify-center mt-0.5">
-              <span className="material-symbols-outlined text-[20px]">verified_user</span>
-            </div>
-            <div className="flex-1 flex flex-col min-w-0">
-              <span className="font-label-md text-label-md text-primary font-bold tracking-wide">
-                INTEROPERABLE QRPH ROUTER
-              </span>
-              <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 font-sans leading-relaxed">
-                Scan natively with <strong className="text-on-surface font-semibold">GCash</strong>,{' '}
-                <strong className="text-on-surface font-semibold">Maya</strong>,{' '}
-                <strong className="text-on-surface font-semibold">BPI</strong>, or any compliant
-                Philippine bank. Real-time P2P settlement with zero transfer surcharges.
-              </p>
-            </div>
-          </div>
-
           {/* Physical Neo-Brutalist Actuator Cluster (Action Deck) */}
           <div className="flex flex-col space-y-space-sm pt-space-xs">
-            <button
-              onClick={handleSaveToDevice}
-              className="w-full bg-primary-container text-on-primary font-headline-md text-headline-md py-3 px-space-md rounded-lg shadow-lg flex items-center justify-center gap-space-sm transition-transform active:translate-y-0.5 font-bold uppercase hover:bg-primary-fixed cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]">download</span>
-              <span>[ SAVE TO DEVICE ]</span>
-            </button>
+            {/* Direct Pay with Bank (Auto-Saves QR) */}
+            {onPayWithBank && (
+              <button
+                onClick={() => onPayWithBank(card)}
+                className="w-full bg-primary-container text-on-primary font-headline-md text-headline-md py-3 px-space-md rounded-xl shadow-lg flex items-center justify-center gap-space-sm transition-transform active:translate-y-0.5 font-bold uppercase hover:bg-primary-fixed cursor-pointer text-xs sm:text-sm font-mono tracking-wider"
+              >
+                <span className="material-symbols-outlined text-[20px]">bolt</span>
+                <span>[ PAY WITH GCASH / BANK APP ]</span>
+              </button>
+            )}
+
+            <div className="grid grid-cols-2 gap-space-sm">
+              <button
+                onClick={handleSaveToGallery}
+                disabled={isSaving}
+                className={`font-label-md text-label-md py-2.5 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border font-bold cursor-pointer text-[11px] ${
+                  savedToGallery
+                    ? 'bg-primary-container/20 text-primary-fixed border-primary-fixed/40'
+                    : 'bg-surface-container-high text-on-surface border-outline-variant/30 hover:bg-surface-bright'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[18px] text-primary">
+                  {savedToGallery ? 'check_circle' : 'add_photo_alternate'}
+                </span>
+                <span className="truncate">{savedToGallery ? 'SAVED TO PHOTOS' : isSaving ? 'SAVING...' : 'SAVE TO RECENTS'}</span>
+              </button>
+
+              <button
+                onClick={handleCopyQRImage}
+                className={`font-label-md text-label-md py-2.5 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border font-bold cursor-pointer text-[11px] ${
+                  copiedQR
+                    ? 'bg-primary-container/20 text-primary-fixed border-primary-fixed/40'
+                    : 'bg-surface-container-high text-on-surface border-outline-variant/30 hover:bg-surface-bright'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[18px] text-secondary">
+                  {copiedQR ? 'check' : 'content_copy'}
+                </span>
+                <span className="truncate">{copiedQR ? 'QR COPIED!' : 'COPY QR IMAGE'}</span>
+              </button>
+            </div>
 
             <div className="grid grid-cols-2 gap-space-sm">
               <button
                 onClick={handleShare}
-                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2.5 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-outline-variant/30 font-bold hover:bg-surface-bright cursor-pointer"
+                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-outline-variant/30 font-bold hover:bg-surface-bright cursor-pointer text-[11px]"
               >
-                <span className="material-symbols-outlined text-[18px] text-tertiary">share</span>
-                <span className="truncate">[ SHARE CARTRIDGE ]</span>
+                <span className="material-symbols-outlined text-[16px] text-tertiary">share</span>
+                <span className="truncate">[ SHARE QR ]</span>
               </button>
 
               <button
                 onClick={() => setIsRotated(!isRotated)}
-                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2.5 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-outline-variant/30 font-bold hover:bg-surface-bright cursor-pointer"
+                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-outline-variant/30 font-bold hover:bg-surface-bright cursor-pointer text-[11px]"
               >
-                <span className="material-symbols-outlined text-[18px] text-secondary">
+                <span className="material-symbols-outlined text-[16px] text-secondary">
                   screen_rotation
                 </span>
                 <span className="truncate">[ FLIP 180° ]</span>

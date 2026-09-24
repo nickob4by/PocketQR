@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
+import { QRCodeSVG } from 'qrcode.react';
 import type { ParsedEMVCo } from '../lib/emvcoParser';
 import { formatAccountNumber } from '../lib/emvcoParser';
 import type { PayingBankApp } from '../types/payment';
@@ -14,6 +15,10 @@ import {
   getInstalledBankingApps,
 } from '../lib/nativeBanking';
 import { triggerHaptic } from '../lib/security';
+import {
+  saveQRToGallery,
+  copyQRImageToClipboard,
+} from '../lib/qrImageUtils';
 import type { QRCardItem } from '../types/qr';
 
 interface PaymentRoutingSheetProps {
@@ -39,7 +44,10 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
     return found || PAYING_BANK_APPS[0];
   });
 
-  const [copiedNumber, setCopiedNumber] = useState(true);
+  const [copiedNumber, setCopiedNumber] = useState(false);
+  const [copiedQR, setCopiedQR] = useState(false);
+  const [savedToGallery, setSavedToGallery] = useState(false);
+  const [isSavingQR, setIsSavingQR] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [defaultBankId, setDefaultBankId] = useState<string | null>(() => getDefaultPayingBank());
   const [installedAppIds, setInstalledAppIds] = useState<string[]>([]);
@@ -51,14 +59,19 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
   const recipientNumber = parsed.accountNumber || '';
   const receivingBank = parsed.bankName || (parsed.isQRPh ? 'QR Ph Network' : 'Bank / E-Wallet');
 
-  // Auto-copy account number to clipboard immediately when sheet mounts
+  // Auto-copy QR image and account number to clipboard immediately when sheet mounts
   useEffect(() => {
-    if (recipientNumber && typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(recipientNumber).then(() => {
-        setCopiedNumber(true);
-      }).catch(() => {});
-    }
-  }, [recipientNumber]);
+    copyQRImageToClipboard({
+      rawPayload,
+      imageDataUrl,
+      textFallback: recipientNumber,
+    }).then((res) => {
+      if (res.success) {
+        setCopiedQR(true);
+        setTimeout(() => setCopiedQR(false), 2000);
+      }
+    });
+  }, [rawPayload, imageDataUrl, recipientNumber]);
 
   // Query installed apps on native Android
   useEffect(() => {
@@ -89,6 +102,46 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
       triggerHaptic('success');
       onNotify('Copied to Clipboard!', recipientNumber, 'success');
       setTimeout(() => setCopiedNumber(false), 2000);
+    }
+  };
+
+  const handleSaveQR = async () => {
+    setIsSavingQR(true);
+    triggerHaptic('light');
+    const res = await saveQRToGallery({
+      rawPayload,
+      imageDataUrl,
+      accountName: recipientName,
+    });
+    setIsSavingQR(false);
+
+    if (res.success) {
+      setSavedToGallery(true);
+      triggerHaptic('success');
+      try {
+        confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
+      } catch {}
+      onNotify('QR Saved to Recent Photos!', 'Open GCash/Bank and tap "Upload QR"', 'success');
+    } else {
+      onNotify('Save Failed', res.message, 'error');
+    }
+  };
+
+  const handleCopyQR = async () => {
+    triggerHaptic('light');
+    const res = await copyQRImageToClipboard({
+      rawPayload,
+      imageDataUrl,
+      textFallback: recipientNumber,
+    });
+
+    if (res.success) {
+      setCopiedQR(true);
+      triggerHaptic('success');
+      onNotify('QR Image Copied!', 'Image is ready in your clipboard to paste or upload', 'success');
+      setTimeout(() => setCopiedQR(false), 2500);
+    } else {
+      onNotify('Copy Failed', res.message, 'error');
     }
   };
 
@@ -132,25 +185,43 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
     );
   };
 
-  const handleLaunchPayment = () => {
+  const handleLaunchPayment = async () => {
     setIsDispatching(true);
     triggerHaptic('light');
 
-    // 1. Copy number
-    if (recipientNumber) {
-      navigator.clipboard.writeText(recipientNumber).catch(() => {});
+    // 1. Auto-save QR image to Gallery/Recent Photos so it is immediately #1 in bank photo picker
+    try {
+      await saveQRToGallery({
+        rawPayload,
+        imageDataUrl,
+        accountName: recipientName,
+      });
+      setSavedToGallery(true);
+    } catch (e) {
+      console.warn('Auto save gallery failed:', e);
     }
 
-    // 2. Launch
+    // 2. Ensure QR image & account number are in clipboard
+    try {
+      await copyQRImageToClipboard({
+        rawPayload,
+        imageDataUrl,
+        textFallback: recipientNumber,
+      });
+    } catch (e) {
+      console.warn('Auto copy clipboard failed:', e);
+    }
+
+    // 3. Launch native banking app
     setTimeout(() => {
       launchBankingApp(selectedApp, recipientNumber);
       onNotify(
         `Launching ${selectedApp.name}...`,
-        recipientNumber ? `Number copied: ${recipientNumber}` : undefined,
+        'QR image saved to Recent Photos! Tap "Upload QR" in app to pay.',
         'success'
       );
       setTimeout(() => setIsDispatching(false), 2000);
-    }, 400);
+    }, 350);
   };
 
   return (
@@ -167,7 +238,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
               >
                 <span className="material-symbols-outlined text-[20px]">arrow_back</span>
               </button>
-              <h1 className="font-headline-md text-headline-md tracking-tight text-on-surface uppercase truncate font-bold">
+              <h1 className="font-headline-md text-headline-md tracking-tight text-on-surface uppercase truncate font-bold text-sm sm:text-base">
                 Payment Dispatch
               </h1>
             </div>
@@ -177,7 +248,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-label-sm text-label-sm font-bold uppercase transition-all ${
                 hasSaved
                   ? 'bg-primary-container/20 border-primary-fixed text-primary-fixed'
-                  : 'bg-surface-container-high border-outline-variant/60 text-tertiary hover:bg-surface-bright active:translate-y-0.5'
+                  : 'bg-surface-container-high border-outline-variant/60 text-tertiary hover:bg-surface-bright active:translate-y-0.5 cursor-pointer'
               }`}
             >
               <span className="material-symbols-outlined text-[16px]">
@@ -194,11 +265,11 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
           <div className="flex items-center justify-between font-mono font-label-sm text-label-sm">
             <div className="flex items-center gap-space-xs">
               <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
-              <span className="text-primary tracking-wider uppercase font-bold">
+              <span className="text-primary tracking-wider uppercase font-bold text-[11px]">
                 DECODER ACTIVE // QRPH 2.4
               </span>
             </div>
-            <div className="flex items-center gap-space-xs bg-surface-container-high px-space-sm py-0.5 rounded border border-outline-variant/30">
+            <div className="flex items-center gap-space-xs bg-surface-container-high px-space-sm py-0.5 rounded border border-outline-variant/30 text-[10px]">
               <span className="text-on-surface-variant uppercase tracking-wider">ROUTING</span>
               <span className="text-primary-fixed font-bold">READY</span>
             </div>
@@ -216,108 +287,133 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
                   <span className="material-symbols-outlined text-primary text-[18px]">
                     receipt_long
                   </span>
-                  <span className="text-primary uppercase tracking-widest font-bold">
+                  <span className="text-primary uppercase tracking-widest font-bold text-[11px]">
                     TRANSACTION RECEIPT
                   </span>
                 </div>
-                <span className="text-outline uppercase tracking-wider">QRPH // INSTAPAY</span>
+                <span className="text-outline uppercase tracking-wider text-[10px]">
+                  QRPH // INSTAPAY
+                </span>
               </div>
 
-              {/* Merchant / Payee & Number Box */}
-              <div className="bg-surface-container-low p-space-sm rounded-lg flex flex-col gap-1 border border-outline-variant/30">
-                <div className="flex items-center justify-between">
-                  <span className="text-label-sm text-outline uppercase">VERIFIED RECIPIENT</span>
-                  <span className="text-label-sm text-secondary font-bold tracking-wide">
-                    {receivingBank}
-                  </span>
-                </div>
-                <div className="font-headline-md text-headline-md text-on-surface tracking-tight truncate font-bold">
-                  {recipientName}
+              {/* Merchant / Payee & QR Preview Box */}
+              <div className="bg-surface-container-low p-space-sm rounded-lg flex items-center gap-3 border border-outline-variant/30">
+                {/* QR Code Mini-Preview */}
+                <div className="w-14 h-14 bg-white p-1 rounded-md flex-shrink-0 flex items-center justify-center shadow-inner">
+                  {rawPayload ? (
+                    <QRCodeSVG value={rawPayload} size={48} level="M" />
+                  ) : imageDataUrl ? (
+                    <img src={imageDataUrl} alt="QR" className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="material-symbols-outlined text-black text-[24px]">qr_code_2</span>
+                  )}
                 </div>
 
-                {recipientNumber && (
-                  <div className="flex items-center justify-between mt-1 pt-1 border-t border-outline-variant/30">
-                    <span className="text-label-sm text-outline uppercase font-mono">
-                      ACCT: {formatAccountNumber(recipientNumber, false)}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-outline uppercase font-mono">VERIFIED RECIPIENT</span>
+                    <span className="text-[10px] text-secondary font-bold tracking-wide truncate max-w-[120px]">
+                      {receivingBank}
                     </span>
-                    <button
-                      onClick={handleCopyNumber}
-                      className="flex items-center gap-1 text-[11px] text-primary hover:text-primary-fixed font-bold font-mono bg-surface-container-high px-2 py-0.5 rounded cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[13px]">
-                        {copiedNumber ? 'check' : 'content_copy'}
-                      </span>
-                      <span>{copiedNumber ? 'COPIED' : 'COPY'}</span>
-                    </button>
                   </div>
-                )}
+                  <div className="font-headline-md text-headline-md text-on-surface tracking-tight truncate font-bold text-sm">
+                    {recipientName}
+                  </div>
+
+                  {recipientNumber && (
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-[10px] text-outline font-mono">
+                        {formatAccountNumber(recipientNumber, false)}
+                      </span>
+                      <button
+                        onClick={handleCopyNumber}
+                        className="flex items-center gap-0.5 text-[10px] text-primary hover:text-primary-fixed font-bold font-mono bg-surface-container-high px-1.5 py-0.2 rounded cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[11px]">
+                          {copiedNumber ? 'check' : 'content_copy'}
+                        </span>
+                        <span>{copiedNumber ? 'COPIED' : 'COPY'}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Amount if specified in QR */}
               {parsed.amount && (
                 <div className="flex items-center justify-between bg-surface-container-high px-space-sm py-1 rounded-lg">
-                  <span className="text-label-sm text-outline uppercase">PAYMENT AMOUNT:</span>
-                  <span className="font-headline-md text-headline-md text-primary-fixed font-bold">
-                    ₱{parsed.amount}
+                  <span className="text-label-sm text-outline uppercase text-[11px]">PAYMENT AMOUNT:</span>
+                  <span className="font-headline-md text-headline-md text-primary-fixed font-bold text-sm">
+                    PHP {parseFloat(parsed.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
 
-              {/* Meta Telemetry */}
-              <div className="grid grid-cols-2 gap-space-xs text-[10px]">
-                <div className="bg-surface-container p-space-xs rounded flex flex-col">
-                  <span className="text-outline uppercase">NETWORK PROTOCOL</span>
-                  <span className="text-on-surface truncate font-bold">QRPH STANDARD P2M</span>
-                </div>
-                <div className="bg-surface-container p-space-xs rounded flex flex-col">
-                  <span className="text-outline uppercase">SWITCHING FEE</span>
-                  <span className="text-primary-fixed truncate font-bold">₱ 0.00 (FREE)</span>
-                </div>
+              {/* Direct QR Utilities: Save to Recents & Copy QR Image */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSaveQR}
+                  disabled={isSavingQR}
+                  className={`py-2 px-2 rounded-lg font-mono text-[11px] font-bold uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                    savedToGallery
+                      ? 'bg-primary-container/20 text-primary-fixed border-primary-fixed/40'
+                      : 'bg-surface-container-high text-on-surface border-outline-variant/40 hover:bg-surface-bright active:translate-y-0.5'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[15px] text-primary">
+                    {savedToGallery ? 'check_circle' : 'add_photo_alternate'}
+                  </span>
+                  <span>{savedToGallery ? 'SAVED TO PHOTOS' : isSavingQR ? 'SAVING...' : 'SAVE TO RECENTS'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyQR}
+                  className={`py-2 px-2 rounded-lg font-mono text-[11px] font-bold uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                    copiedQR
+                      ? 'bg-primary-container/20 text-primary-fixed border-primary-fixed/40'
+                      : 'bg-surface-container-high text-on-surface border-outline-variant/40 hover:bg-surface-bright active:translate-y-0.5'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[15px] text-secondary">
+                    {copiedQR ? 'check' : 'content_copy'}
+                  </span>
+                  <span>{copiedQR ? 'QR COPIED!' : 'COPY QR IMAGE'}</span>
+                </button>
+              </div>
+
+              {/* Bank photo picker helpful tip */}
+              <div className="bg-surface-container-high/60 px-2.5 py-1.5 rounded-lg flex items-center gap-2 border border-outline-variant/20">
+                <span className="material-symbols-outlined text-[15px] text-primary flex-shrink-0">
+                  tips_and_updates
+                </span>
+                <p className="text-[10px] text-on-surface-variant font-sans leading-tight">
+                  Tapping <strong className="text-on-surface font-semibold">Launch</strong> auto-saves the QR image to Recent Photos. Inside {selectedApp.name}, tap <strong className="text-primary font-semibold">"Upload QR"</strong> to pay instantly!
+                </p>
               </div>
             </div>
           </section>
 
-          {/* Quick Notice: How Philippine Banks Process Deep Links */}
-          <div className="bg-surface-container-low p-space-sm rounded-lg border border-outline-variant/30 flex items-start gap-2 text-xs">
-            <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">
-              info
+          {/* Paying Bank Selector Deck */}
+          <div className="flex items-center justify-between pt-1">
+            <span className="font-label-sm text-label-sm text-outline uppercase font-mono font-bold text-[11px]">
+              SELECT PAYING BANK // CARTRIDGE
             </span>
-            <p className="text-on-surface-variant font-mono text-[11px] leading-relaxed">
-              <strong className="text-on-surface">Auto-Copied:</strong> {recipientNumber} is in your clipboard. Once your banking app opens and you log in, tap{' '}
-              <span className="text-primary-fixed font-bold">Send &gt; Express Send</span> and paste!
-            </p>
+            {isNative && installedAppIds.length > 0 && (
+              <button
+                onClick={() => setShowAllApps(!showAllApps)}
+                className="text-[10px] font-mono text-primary hover:underline cursor-pointer"
+              >
+                {showAllApps ? 'SHOW DETECTED ONLY' : 'SHOW ALL BANKS'}
+              </button>
+            )}
           </div>
 
-          {/* Section Header */}
-          <div className="flex items-center justify-between px-0.5 pt-1">
-            <div className="flex items-center gap-space-xs">
-              <span className="material-symbols-outlined text-secondary text-[16px]">
-                swap_horiz
-              </span>
-              <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight uppercase font-bold text-sm">
-                CHOOSE PAYMENT CARTRIDGE
-              </h2>
-            </div>
-            <div className="flex items-center gap-1.5 font-mono text-label-sm">
-              <span className="text-on-surface-variant font-bold">
-                {displayedApps.length} APPS
-              </span>
-              {isNative && (
-                <button
-                  onClick={() => setShowAllApps(!showAllApps)}
-                  className="text-primary hover:underline"
-                >
-                  {showAllApps ? '[INSTALLED ONLY]' : '[SHOW ALL]'}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Cartridge Stack List */}
-          <div className="flex flex-col gap-space-xs font-mono" role="radiogroup">
+          <div className="grid grid-cols-1 gap-space-xs font-mono max-h-56 overflow-y-auto pr-1">
             {displayedApps.map((app) => {
               const isSelected = selectedApp.id === app.id;
-              const isInstalled = isNative && installedAppIds.includes(app.id);
+              const isInstalled = installedAppIds.includes(app.id);
 
               return (
                 <div
@@ -326,27 +422,27 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
                     setSelectedApp(app);
                     triggerHaptic('light');
                   }}
-                  className={`cartridge-item cursor-pointer p-space-sm rounded-xl transition-all duration-150 active:translate-y-0.5 relative border ${
+                  className={`p-space-sm rounded-xl cursor-pointer transition-all border ${
                     isSelected
-                      ? 'bg-surface-container-high border-primary-fixed shadow-md'
-                      : 'bg-surface-container border-outline-variant/30 hover:border-outline-variant/60'
+                      ? 'bg-surface-container-high border-primary-fixed shadow-[0_0_12px_rgba(0,240,160,0.2)]'
+                      : 'bg-surface-container-low border-outline-variant/30 hover:border-outline-variant/80'
                   }`}
-                  role="radio"
-                  aria-checked={isSelected}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-space-sm">
                       <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center shadow-inner"
-                        style={{ backgroundColor: app.accentColor + '20', color: app.accentColor }}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow"
+                        style={{ backgroundColor: app.accentColor }}
                       >
-                        <span className="material-symbols-outlined text-[20px]">
-                          account_balance_wallet
-                        </span>
+                        {app.name.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex flex-col">
-                        <div className="flex items-center gap-space-xs">
-                          <span className="font-headline-md text-headline-md text-on-surface font-bold text-sm leading-none">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`font-label-md text-label-md font-bold ${
+                              isSelected ? 'text-primary-fixed' : 'text-on-surface'
+                            }`}
+                          >
                             {app.name.toUpperCase()}
                           </span>
                           {isInstalled && (
@@ -388,10 +484,10 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
           </div>
 
           {/* Set as Default Preference Toggle */}
-          <div className="flex items-center justify-between px-1 py-1 font-mono text-label-sm">
+          <div className="flex items-center justify-between px-1 py-0.5 font-mono text-label-sm">
             <button
               onClick={handleToggleDefault}
-              className="flex items-center gap-1.5 text-secondary hover:text-secondary-fixed transition-colors"
+              className="flex items-center gap-1.5 text-secondary hover:text-secondary-fixed transition-colors text-[11px] cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">
                 {defaultBankId === selectedApp.id ? 'check_box' : 'check_box_outline_blank'}
@@ -406,12 +502,12 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
           <button
             onClick={handleLaunchPayment}
             disabled={isDispatching}
-            className="w-full bg-primary-container text-on-primary font-headline-md text-headline-md font-bold py-3.5 px-space-md rounded-xl shadow-lg flex items-center justify-center gap-space-sm transition-all duration-100 active:translate-y-1 active:shadow-none uppercase cursor-pointer text-sm font-mono tracking-wider hover:bg-primary-fixed"
+            className="w-full bg-primary-container text-on-primary font-headline-md text-headline-md font-bold py-3.5 px-space-md rounded-xl shadow-lg flex items-center justify-center gap-space-sm transition-all duration-100 active:translate-y-1 active:shadow-none uppercase cursor-pointer text-xs sm:text-sm font-mono tracking-wider hover:bg-primary-fixed"
           >
             {isDispatching ? (
               <>
                 <span className="material-symbols-outlined text-[20px] animate-spin">refresh</span>
-                <span>DISPATCHING INTENT...</span>
+                <span>SAVING &amp; DISPATCHING...</span>
               </>
             ) : (
               <>
@@ -423,10 +519,10 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
 
           <button
             onClick={onClose}
-            className="w-full bg-surface-container-high text-on-surface font-headline-md text-headline-md font-bold py-2.5 px-space-lg rounded-xl shadow-md transition-all duration-100 active:translate-y-0.5 uppercase tracking-wide flex items-center justify-center gap-space-xs text-xs font-mono"
+            className="w-full bg-surface-container-high text-on-surface font-headline-md text-headline-md font-bold py-2.5 px-space-lg rounded-xl shadow-md transition-all duration-100 active:translate-y-0.5 uppercase tracking-wide flex items-center justify-center gap-space-xs text-xs font-mono cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
-            <span>CANCEL TRANSACTION</span>
+            <span>CLOSE</span>
           </button>
         </div>
       </div>
