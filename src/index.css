@@ -31,8 +31,13 @@ main {
 .pt-safe {
   padding-top: max(env(safe-area-inset-top, 0px), 0px);
 }
+/* Ensure universal vertical touch scrolling across all elements, buttons, and cards */
+*,
+*::before,
+*::after {
+  touch-action: pan-y;
+}
 
-/* Touch Ergonomics: eliminate 300ms tap delay & accidental double-tap zoom on UI controls */
 button,
 a,
 input,
@@ -40,7 +45,16 @@ select,
 textarea,
 [role="button"],
 .clickable {
-  touch-action: manipulation;
+  touch-action: pan-y manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+main,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+  overflow-y: auto;
 }
 
 /* iOS Safe Area Insets for standalone PWA & notch / Dynamic Island */
