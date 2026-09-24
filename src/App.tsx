@@ -19,7 +19,6 @@ import { parseQRPhPayload } from './lib/emvcoParser';
 import { AddQRModal } from './components/AddQRModal';
 import { ScanToPayModal } from './components/ScanToPayModal';
 import { ConfigView } from './components/ConfigView';
-import { InstallPrompt } from './components/InstallPrompt';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
 import { authenticateWithBiometrics, triggerHaptic } from './lib/security';
@@ -470,9 +469,6 @@ export function App() {
         onSave={handleSaveCard}
         onNotify={addToast}
       />
-
-      {/* Install PWA Prompt Banner */}
-      <InstallPrompt />
 
       {/* Floating Toasts */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

@@ -240,9 +240,6 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
               <span className="material-symbols-outlined text-[12px]">memory</span>
               <span>SLOT: {currentSlotNum}/16 [{initialCard ? 'ALLOCATED' : 'UNALLOCATED'}]</span>
             </div>
-            <span className="font-label-sm text-label-sm text-secondary-fixed bg-surface-container-lowest px-1.5 py-0.5 rounded-DEFAULT">
-              SECTOR: WRITE_ACCESS
-            </span>
           </div>
         </div>
 
@@ -526,86 +523,7 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
             </div>
           </div>
 
-          {/* Category / Tag Partition Selector */}
-          <div className="flex flex-col gap-1.5">
-            <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-              SECTOR TAG / PROFILE
-            </label>
-            <div className="grid grid-cols-4 gap-1.5" id="tag-selector">
-              <button
-                type="button"
-                onClick={() => {
-                  setCategory('personal');
-                  triggerHaptic('light');
-                }}
-                className={`tag-btn py-1.5 px-1 rounded-DEFAULT font-label-sm text-label-sm text-center transition-all cursor-pointer ${
-                  category === 'personal'
-                    ? 'bg-surface-container-highest text-primary-fixed shadow-sm font-bold border border-primary-fixed/30'
-                    : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                #PERSONAL
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCategory('business');
-                  triggerHaptic('light');
-                }}
-                className={`tag-btn py-1.5 px-1 rounded-DEFAULT font-label-sm text-label-sm text-center transition-all cursor-pointer ${
-                  category === 'business'
-                    ? 'bg-surface-container-highest text-primary-fixed shadow-sm font-bold border border-primary-fixed/30'
-                    : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                #BUSINESS
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCategory('savings');
-                  triggerHaptic('light');
-                }}
-                className={`tag-btn py-1.5 px-1 rounded-DEFAULT font-label-sm text-label-sm text-center transition-all cursor-pointer ${
-                  category === 'savings'
-                    ? 'bg-surface-container-highest text-primary-fixed shadow-sm font-bold border border-primary-fixed/30'
-                    : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                #SAVINGS
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCategory('other');
-                  triggerHaptic('light');
-                }}
-                className={`tag-btn py-1.5 px-1 rounded-DEFAULT font-label-sm text-label-sm text-center transition-all cursor-pointer ${
-                  category === 'other' || category === 'bill-split'
-                    ? 'bg-surface-container-highest text-primary-fixed shadow-sm font-bold border border-primary-fixed/30'
-                    : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                #MERCHANT
-              </button>
-            </div>
-          </div>
 
-          {/* Optional Notes / Memo field */}
-          <div className="flex flex-col gap-1">
-            <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-between">
-              <span>NOTES / MEMO (OPTIONAL)</span>
-            </label>
-            <div className="rounded-DEFAULT bg-surface-container-lowest p-2 shadow-inner focus-within:ring-1 focus-within:ring-outline border border-outline-variant/30">
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g., Daily allowance / Store payment QR"
-                className="w-full bg-transparent font-sans text-xs text-on-surface placeholder:text-outline/50 outline-none"
-              />
-            </div>
-          </div>
 
           {/* Hardware Write Telemetry Status Strip */}
           <div className="flex items-center justify-between p-2 rounded-DEFAULT bg-surface-container-lowest border border-outline-variant/20">

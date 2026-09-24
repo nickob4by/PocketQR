@@ -138,15 +138,7 @@ export const QRCard: React.FC<QRCardProps> = ({
       </div>
 
       {/* Main Cartridge Body: Clean Info-Focused Layout */}
-      <div className="flex items-center gap-3 py-1">
-        {/* Sleek Bank Badge Emblem */}
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold font-mono text-sm shadow-md border border-white/10"
-          style={{ backgroundColor: bankConfig.accentColor || '#00e296' }}
-        >
-          {bankConfig.shortName ? bankConfig.shortName.slice(0, 2).toUpperCase() : 'QR'}
-        </div>
-
+      <div className="flex flex-col gap-1 py-1">
         {/* Payee Credentials Column */}
         <div className="flex flex-col justify-between flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">

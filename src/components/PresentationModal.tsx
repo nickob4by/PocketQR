@@ -142,7 +142,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface animate-in fade-in duration-200 overflow-y-auto safe-p">
       <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-start gap-2 py-2 sm:py-3 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
         {/* Header */}
         <header className="sticky top-0 w-full z-10 pt-safe bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30 pb-2">
@@ -198,63 +198,29 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
             </div>
           </div>
 
-          {/* Giant Retro LCD Framing Chassis */}
+          {/* Unified Clean Cashier Scan Card */}
           <div
-            className={`relative bg-surface-container-high p-space-md rounded-xl shadow-xl border border-outline-variant/40 transition-transform duration-300 ${
+            className={`relative bg-surface-container-high p-space-md rounded-xl shadow-xl border border-outline-variant/40 flex flex-col items-center overflow-hidden transition-transform duration-300 ${
               isRotated ? 'rotate-180' : ''
             }`}
           >
-            {/* Molded Hardware Screw Accents in the 4 corners */}
-            <div className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest flex items-center justify-center">
-              <span className="w-1.5 h-0.5 bg-outline-variant block rotate-45"></span>
-            </div>
-            <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest flex items-center justify-center">
-              <span className="w-1.5 h-0.5 bg-outline-variant block -rotate-45"></span>
-            </div>
-            <div className="absolute bottom-2 left-2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest flex items-center justify-center">
-              <span className="w-1.5 h-0.5 bg-outline-variant block -rotate-12"></span>
-            </div>
-            <div className="absolute bottom-2 right-2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest flex items-center justify-center">
-              <span className="w-1.5 h-0.5 bg-outline-variant block rotate-45"></span>
-            </div>
+            {/* Dot-Matrix Decorative Mesh Backdrop */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#003822_1px,transparent_1px)] [background-size:6px_6px]"></div>
 
-            {/* Inner Bezel Header Deck */}
-            <div className="flex items-center justify-between px-space-xs pb-space-sm border-b border-outline-variant/20 mb-2">
+            {/* Station / Rail Pill */}
+            <div className="relative z-10 w-full flex items-center justify-between bg-surface-container-lowest text-on-surface px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
               <div className="flex items-center gap-space-xs">
-                <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold text-xs">
-                  SLOT 01
-                </span>
-                <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-1.5 py-0.5 rounded-DEFAULT font-bold text-[10px]">
-                  QRPh 2.0
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-label-sm text-label-sm text-outline tracking-tight text-[10px]">
-                  FREQ: 2.4GHz
-                </span>
-                <span className="material-symbols-outlined text-[15px] text-primary">nfc</span>
-              </div>
-            </div>
-
-            {/* LCD Recessed Screen */}
-            <div className="relative bg-surface-bright p-space-md rounded-lg shadow-inner overflow-hidden flex flex-col items-center border border-outline-variant/30">
-              {/* Dot-Matrix Decorative Mesh Backdrop */}
-              <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#003822_1px,transparent_1px)] [background-size:6px_6px]"></div>
-
-              {/* Station / Rail Pill */}
-              <div className="relative z-10 w-full flex items-center justify-between bg-surface-container-lowest text-on-surface px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
-                <div className="flex items-center gap-space-xs">
-                  <div className="w-4 h-4 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-bold text-[9px] font-label-sm">
-                    ✓
-                  </div>
-                  <span className="font-headline-md text-label-md text-tertiary tracking-wider font-bold text-xs">
-                    {bankName} {card.category.toUpperCase()}
-                  </span>
+                <div className="w-4 h-4 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-bold text-[9px] font-label-sm">
+                  ✓
                 </div>
-                <span className="font-label-sm text-label-sm text-primary uppercase font-bold tracking-wider text-[10px]">
-                  SYNCED
+                <span className="font-headline-md text-label-md text-tertiary tracking-wider font-bold text-xs">
+                  {bankName}
                 </span>
               </div>
+              <span className="font-label-sm text-label-sm text-primary uppercase font-bold tracking-wider text-[10px]">
+                SYNCED
+              </span>
+            </div>
 
               {/* High-Fidelity Tactical QR Display */}
               <div className="relative z-10 my-space-md p-space-md bg-white rounded-xl shadow-lg flex flex-col items-center justify-center">
@@ -310,7 +276,6 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                 </div>
               </div>
             </div>
-          </div>
 
           {/* Physical Neo-Brutalist Actuator Cluster (Action Deck) */}
           <div className="flex flex-col space-y-space-sm pt-space-xs">

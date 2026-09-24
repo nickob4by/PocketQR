@@ -24,9 +24,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   const [oledBlack, setOledBlack] = useState<boolean>(() => {
     return localStorage.getItem('pocketqr_oled_black') === 'true';
   });
-  const [hapticLevel, setHapticLevel] = useState<'OFF' | 'LOW' | 'NORM' | 'MAX'>(() => {
-    return (localStorage.getItem('pocketqr_haptic_level') as any) || 'NORM';
-  });
+
   const [themeTone, setThemeTone] = useState<'MINT' | 'AMBER' | 'CYAN'>(() => {
     return (localStorage.getItem('pocketqr_theme_tone') as any) || 'MINT';
   });
@@ -78,20 +76,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     triggerHaptic('light');
   };
 
-  // Haptic Actuator Selector
-  const handleSetHaptic = (level: 'OFF' | 'LOW' | 'NORM' | 'MAX') => {
-    setHapticLevel(level);
-    localStorage.setItem('pocketqr_haptic_level', level);
-    if (level === 'OFF') {
-      // no pulse
-    } else if (level === 'LOW') {
-      triggerHaptic('light');
-    } else if (level === 'NORM') {
-      triggerHaptic('light');
-    } else {
-      triggerHaptic('warning');
-    }
-  };
+
 
   // Theme Tone Selector
   const handleSetThemeTone = (tone: 'MINT' | 'AMBER' | 'CYAN') => {
@@ -205,7 +190,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           <div className="flex items-center gap-space-xs">
             <span className="material-symbols-outlined text-[16px] text-primary-fixed">tune</span>
             <span className="font-label-md text-label-md text-primary-fixed uppercase tracking-wider">
-              01 // DISPLAY &amp; HAPTICS RIG
+              01 // DISPLAY &amp; COLOR RIG
             </span>
           </div>
           <span className="font-label-sm text-label-sm text-on-surface-variant">PPU.CHIP_88</span>
@@ -281,39 +266,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
             </div>
           </div>
 
-          {/* Matrix Haptic Feedback Selector */}
-          <div className="flex flex-col gap-space-xs p-space-md rounded-lg bg-surface-container">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">vibration</span>
-                <span className="font-headline-md text-headline-md text-on-surface text-[15px]">
-                  Matrix Haptic Feedback
-                </span>
-              </div>
-              <span className="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider">
-                TACTILE_{hapticLevel}
-              </span>
-            </div>
-            <span className="font-body-sm text-body-sm text-on-surface-variant mb-1">
-              ERM Linear Actuator click weight on trigger press
-            </span>
-            <div className="grid grid-cols-4 gap-1.5 pt-1">
-              {(['OFF', 'LOW', 'NORM', 'MAX'] as const).map((lvl) => (
-                <button
-                  key={lvl}
-                  type="button"
-                  onClick={() => handleSetHaptic(lvl)}
-                  className={`py-2 px-1 rounded-DEFAULT font-label-sm text-label-sm transition-all active:translate-y-0.5 uppercase tracking-wider text-center cursor-pointer ${
-                    hapticLevel === lvl
-                      ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
-                      : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
-                  }`}
-                >
-                  [{lvl === 'MAX' ? 'TURBO' : lvl}]
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           {/* Display Theme Tone Palette Selector */}
           <div className="flex flex-col gap-space-xs p-space-md rounded-lg bg-surface-container">
