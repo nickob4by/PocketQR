@@ -142,3 +142,27 @@ textarea,
 .wallet-card-active:active {
   transform: scale(0.985);
 }
+
+/* CRT Scanlines Emulation */
+body.crt-scanlines::before {
+  content: " ";
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%);
+  background-size: 100% 3px;
+  z-index: 99999;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+/* Pure OLED Black Canvas */
+html.oled-deep-black,
+html.oled-deep-black body,
+html.oled-deep-black .bg-surface,
+html.oled-deep-black .bg-surface-container-lowest {
+  background-color: #000000 !important;
+}

@@ -252,6 +252,14 @@ export async function resetToSampleCards(): Promise<void> {
 }
 
 /**
+ * Clears all cards from database (Zero-Fill purge).
+ */
+export async function clearAllCards(): Promise<void> {
+  const db = await getDB();
+  await db.clear('cards');
+}
+
+/**
  * Settings helpers: Get/Set security preferences (privacy masking, PIN).
  */
 export async function getSetting<T>(key: string, defaultValue: T): Promise<T> {

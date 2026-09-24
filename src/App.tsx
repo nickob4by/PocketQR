@@ -16,7 +16,7 @@ import { QRCard } from './components/QRCard';
 import { PresentationModal } from './components/PresentationModal';
 import { AddQRModal } from './components/AddQRModal';
 import { ScanToPayModal } from './components/ScanToPayModal';
-import { BackupSettingsModal } from './components/BackupSettingsModal';
+import { ConfigView } from './components/ConfigView';
 import { InstallPrompt } from './components/InstallPrompt';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
@@ -38,7 +38,6 @@ export function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScanToPayOpen, setIsScanToPayOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<QRCardItem | null>(null);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // Biometrics Lock State
   const [isVaultLocked, setIsVaultLocked] = useState(false);
@@ -234,7 +233,7 @@ export function App() {
           setEditingCard(null);
           setIsAddModalOpen(true);
         }}
-        onSettingsClick={() => setIsSettingsModalOpen(true)}
+        onSettingsClick={() => setCurrentTab(currentTab === 'config' ? 'vault' : 'config')}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         privacyMask={privacyMask}
@@ -388,20 +387,24 @@ export function App() {
             </div>
           </div>
         )}
+
+        {currentTab === 'config' && (
+          <ConfigView
+            cardCount={cards.length}
+            privacyMask={privacyMask}
+            onTogglePrivacyMask={handleTogglePrivacyMask}
+            onReloadCards={loadCardsData}
+            onNotify={addToast}
+          />
+        )}
       </main>
 
       {/* Tactile Cyberdeck Bottom Navigation Bar */}
       <BottomNav
         currentTab={currentTab}
-        onTabChange={(tab) => {
-          if (tab === 'config') {
-            setIsSettingsModalOpen(true);
-          } else {
-            setCurrentTab(tab);
-          }
-        }}
+        onTabChange={(tab) => setCurrentTab(tab)}
         onScanClick={() => setIsScanToPayOpen(true)}
-        onConfigClick={() => setIsSettingsModalOpen(true)}
+        onConfigClick={() => setCurrentTab('config')}
       />
 
       {/* Presentation Fullscreen Modal (Cashier Mode) */}
@@ -423,22 +426,12 @@ export function App() {
       <AddQRModal
         isOpen={isAddModalOpen}
         initialCard={editingCard}
+        cardCount={cards.length}
         onClose={() => {
           setIsAddModalOpen(false);
           setEditingCard(null);
         }}
         onSave={handleSaveCard}
-        onNotify={addToast}
-      />
-
-      {/* Settings & Backup Modal */}
-      <BackupSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        cardCount={cards.length}
-        privacyMask={privacyMask}
-        onTogglePrivacyMask={handleTogglePrivacyMask}
-        onReloadCards={loadCardsData}
         onNotify={addToast}
       />
 
