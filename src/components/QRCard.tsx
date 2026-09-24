@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { QRCardItem } from '../types/qr';
 import { BANK_CONFIGS } from '../types/qr';
+import { parseQRPhPayload, formatAccountNumber } from '../lib/emvcoParser';
 import { triggerHaptic } from '../lib/security';
 
 interface QRCardProps {
@@ -25,20 +26,41 @@ export const QRCard: React.FC<QRCardProps> = ({
   const bankConfig = BANK_CONFIGS[card.bank] || BANK_CONFIGS.other;
   const bankName = (card.bankCustomName || bankConfig.name).toUpperCase();
 
+  // Dynamically extract rich details if payload exists
+  const parsedData = useMemo(() => {
+    if (card.rawPayload) {
+      return parseQRPhPayload(card.rawPayload);
+    }
+    return null;
+  }, [card.rawPayload]);
+
+  const rail = card.rail || parsedData?.rail || (card.rawPayload ? 'QR PH' : undefined);
+  const city = card.city || parsedData?.city;
+  const accountNumberRaw = card.accountNumber || parsedData?.accountNumber || '';
+  const displayAccount = formatAccountNumber(accountNumberRaw, false);
+
   return (
     <div
       onClick={() => onPresent(card)}
       className="relative bg-surface-container-high rounded-xl p-3 shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 active:translate-y-0.5 transition-all flex flex-col gap-2 select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-[0_2px_8px_rgba(0,240,160,0.1)] group/card"
     >
-      {/* Card Header Strip: Single Bank Pill & Actions */}
+      {/* Card Header Strip: Bank Pill, Rail Tag & Actions */}
       <div className="flex items-center justify-between">
-        <span
-          className={`font-label-sm text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider shrink-0 ${
-            bankConfig.badgeBg || 'bg-surface-container'
-          } ${bankConfig.badgeText || 'text-on-surface'}`}
-        >
-          {bankName}
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span
+            className={`font-label-sm text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider shrink-0 ${
+              bankConfig.badgeBg || 'bg-surface-container'
+            } ${bankConfig.badgeText || 'text-on-surface'}`}
+          >
+            {bankName}
+          </span>
+
+          {rail && (
+            <span className="font-label-sm text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider bg-surface-container-lowest text-tertiary border border-outline-variant/30 shrink-0">
+              {rail}
+            </span>
+          )}
+        </div>
 
         <div className="flex items-center gap-1 shrink-0">
           {/* Favorite Pin Toggle */}
@@ -115,20 +137,42 @@ export const QRCard: React.FC<QRCardProps> = ({
         </div>
       </div>
 
-      {/* Main Card Body: Clean Payee Name */}
-      <div className="flex items-center justify-between gap-2 pt-0.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-headline-md text-primary tracking-tight truncate font-bold text-xl sm:text-2xl">
-            {card.accountName}
-          </span>
-          <span className="material-symbols-outlined text-primary text-[18px] flex-shrink-0">
-            verified
+      {/* Main Card Body: Clean Payee Name & Extracted Metadata */}
+      <div className="flex flex-col gap-1 pt-0.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-headline-md text-primary tracking-tight truncate font-bold text-xl sm:text-2xl">
+              {card.accountName}
+            </span>
+            <span className="material-symbols-outlined text-primary text-[18px] flex-shrink-0">
+              verified
+            </span>
+          </div>
+
+          <span className="material-symbols-outlined text-outline/30 group-hover/card:text-primary transition-colors text-[20px] flex-shrink-0">
+            qr_code_2
           </span>
         </div>
 
-        <span className="material-symbols-outlined text-outline/30 group-hover/card:text-primary transition-colors text-[20px] flex-shrink-0">
-          qr_code_2
-        </span>
+        {/* Extracted Details Pill Strip */}
+        <div className="flex items-center gap-2 text-xs font-mono text-outline flex-wrap mt-0.5">
+          {displayAccount && (
+            <span className="text-on-surface-variant font-medium tracking-wide">
+              {displayAccount}
+            </span>
+          )}
+
+          {city && (
+            <span className="flex items-center gap-0.5 text-[11px] text-outline">
+              <span className="material-symbols-outlined text-[13px]">location_on</span>
+              <span>{city}</span>
+            </span>
+          )}
+
+          <span className="text-[10px] bg-surface-container-lowest px-1.5 py-0.5 rounded text-outline border border-outline-variant/20 font-bold">
+            PHP
+          </span>
+        </div>
       </div>
     </div>
   );

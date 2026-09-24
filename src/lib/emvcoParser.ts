@@ -11,6 +11,8 @@ export interface ParsedEMVCo {
   amount?: string;
   currency?: string;
   city?: string;
+  rail?: string;
+  userReference?: string;
   isStatic?: boolean;
   tags: Record<string, string>;
   subTags?: Record<string, Record<string, string>>;
@@ -85,8 +87,9 @@ export function parseQRPhPayload(payload: string): ParsedEMVCo {
   // 1. Merchant Name (Tag 59)
   const merchantName = tags['59'] ? tags['59'].trim() : undefined;
 
-  // 2. City (Tag 60)
-  const city = tags['60'] ? tags['60'].trim() : undefined;
+  // 2. City (Tag 60) - Clean trailing parentheses e.g. "New Clarin (Mi" -> "New Clarin"
+  const rawCity = tags['60'] ? tags['60'].trim() : undefined;
+  const city = rawCity ? rawCity.replace(/\s*\([^)]*$/, '').trim() : undefined;
 
   // 3. Amount & Currency
   const amount = tags['54'] ? tags['54'].trim() : undefined;
@@ -95,10 +98,38 @@ export function parseQRPhPayload(payload: string): ParsedEMVCo {
   // 4. Point of initiation (11 = Static, 12 = Dynamic)
   const isStatic = tags['01'] === '11';
 
-  // 5. Detect Account Number / Mobile Number
+  // 5. Detect Rail (InstaPay vs Standard QR Ph)
+  let rail = 'QR PH';
+  for (let tagNum = 26; tagNum <= 51; tagNum++) {
+    const tagKey = tagNum.toString().padStart(2, '0');
+    const sub = subTags[tagKey];
+    if (sub) {
+      if (
+        sub['00'] === 'com.p2pqrpay' ||
+        sub['02'] === '99964403' ||
+        Object.values(sub).some((v) => v.toLowerCase().includes('instapay'))
+      ) {
+        rail = 'INSTAPAY';
+        break;
+      }
+    }
+  }
+
+  // 6. Detect User Reference (e.g. subtag 04 in Tag 27)
+  let userReference: string | undefined;
+  for (let tagNum = 26; tagNum <= 51; tagNum++) {
+    const tagKey = tagNum.toString().padStart(2, '0');
+    const sub = subTags[tagKey];
+    if (sub && sub['04'] && sub['04'].length >= 4) {
+      userReference = sub['04'];
+      break;
+    }
+  }
+
+  // 7. Detect Account Number / Mobile Number
   let accountNumber = extractAccountNumber(tags, subTags);
 
-  // 6. Detect Bank Provider
+  // 8. Detect Bank Provider
   const detectedBank = detectBankProvider(trimmed, tags, subTags);
 
   return {
@@ -111,6 +142,8 @@ export function parseQRPhPayload(payload: string): ParsedEMVCo {
     amount,
     currency,
     city,
+    rail,
+    userReference,
     isStatic,
     tags,
     subTags,
@@ -124,12 +157,11 @@ function extractAccountNumber(
   _tags: Record<string, string>,
   subTags: Record<string, Record<string, string>>
 ): string | undefined {
-  // Check merchant account info subtags (tags 26-51)
+  // 1. Check merchant account info subtags (tags 26-51) for mobile or numeric account
   for (let tagNum = 26; tagNum <= 51; tagNum++) {
     const tagKey = tagNum.toString().padStart(2, '0');
     const sub = subTags[tagKey];
     if (sub) {
-      // Sub-tag 01 or 02 frequently holds account/phone number in QR Ph
       for (const k of ['01', '02', '03']) {
         if (sub[k]) {
           const cleaned = cleanPotentialNumber(sub[k]);
@@ -139,15 +171,23 @@ function extractAccountNumber(
     }
   }
 
-  // Check Tag 62 (Additional Data Field)
+  // 2. Check Tag 62 (Additional Data Field)
   if (subTags['62']) {
     const s62 = subTags['62'];
-    // Sub-tag 02 = Mobile Number, 01 = Bill Number, 05 = Reference
     for (const k of ['02', '01', '05', '07']) {
       if (s62[k]) {
         const cleaned = cleanPotentialNumber(s62[k]);
         if (cleaned) return cleaned;
       }
+    }
+  }
+
+  // 3. Fallback: Check for user reference / proxy token in subtag 04
+  for (let tagNum = 26; tagNum <= 51; tagNum++) {
+    const tagKey = tagNum.toString().padStart(2, '0');
+    const sub = subTags[tagKey];
+    if (sub && sub['04'] && sub['04'].length >= 4) {
+      return sub['04'];
     }
   }
 
@@ -157,6 +197,7 @@ function extractAccountNumber(
 function cleanPotentialNumber(val: string): string | undefined {
   if (!val) return undefined;
   const trimmed = val.trim();
+
   // Philippine mobile numbers (e.g., 09171234567, 639171234567, +639171234567)
   const mobileMatch = trimmed.match(/(?:\+63|63|0)9\d{9}/);
   if (mobileMatch) {
@@ -164,6 +205,11 @@ function cleanPotentialNumber(val: string): string | undefined {
     if (num.startsWith('+63')) num = '0' + num.slice(3);
     else if (num.startsWith('63')) num = '0' + num.slice(2);
     return num;
+  }
+
+  // Skip known national clearing / participant routing codes (e.g. 99964403 for InstaPay)
+  if (trimmed === '99964403') {
+    return undefined;
   }
 
   // Generic bank account numbers (8-16 digits)
@@ -210,16 +256,16 @@ export function detectBankProvider(
   }
 
   // Fallback checks
-  if (combinedSearch.includes('gcash') || combinedSearch.includes('gxchange')) return 'gcash';
-  if (combinedSearch.includes('maya') || combinedSearch.includes('paymaya')) return 'maya';
+  if (combinedSearch.includes('gcash') || combinedSearch.includes('gxch')) return 'gcash';
+  if (combinedSearch.includes('maya') || combinedSearch.includes('paym')) return 'maya';
   if (combinedSearch.includes('rcbc') || combinedSearch.includes('pulz')) return 'rcbc';
-  if (combinedSearch.includes('bpi')) return 'bpi';
-  if (combinedSearch.includes('unionbank') || combinedSearch.includes('ubp')) return 'unionbank';
-  if (combinedSearch.includes('bdo')) return 'bdo';
-  if (combinedSearch.includes('gotyme')) return 'gotyme';
-  if (combinedSearch.includes('seabank') || combinedSearch.includes('shopeepay')) return 'seabank';
+  if (combinedSearch.includes('bpi') || combinedSearch.includes('bopi')) return 'bpi';
+  if (combinedSearch.includes('unionbank') || combinedSearch.includes('ubph') || combinedSearch.includes('ubp')) return 'unionbank';
+  if (combinedSearch.includes('bdo') || combinedSearch.includes('bnor')) return 'bdo';
+  if (combinedSearch.includes('gotyme') || combinedSearch.includes('tyme')) return 'gotyme';
+  if (combinedSearch.includes('seabank') || combinedSearch.includes('seab') || combinedSearch.includes('shopeepay')) return 'seabank';
   if (combinedSearch.includes('metrobank') || combinedSearch.includes('mbtc')) return 'metrobank';
-  if (combinedSearch.includes('cimb')) return 'cimb';
+  if (combinedSearch.includes('cimb') || combinedSearch.includes('ciba')) return 'cimb';
 
   return undefined;
 }
@@ -243,13 +289,23 @@ function parseGenericPayload(raw: string): ParsedEMVCo {
 }
 
 /**
- * Format Philippine mobile number or bank account number for display.
+ * Format Philippine mobile number, bank account number, or User ID proxy for display.
  * e.g., "09171234567" -> "0917 123 4567"
- * or "100912345678" -> "1009 1234 5678"
+ * or "DWQM4TK3JDNXIB3FS" -> "ID: ••••XIB3FS" (masked) or "ID: DWQM4TK3JDNXIB3FS"
  */
 export function formatAccountNumber(number: string, mask = false): string {
   if (!number) return '';
-  const digits = number.replace(/\D/g, '');
+  const trimmed = number.trim();
+
+  // If it's an alphanumeric reference/token (e.g. DWQM4TK3JDNXIB3FS)
+  if (/[a-zA-Z]/.test(trimmed)) {
+    if (mask && trimmed.length > 6) {
+      return `ID: ••••${trimmed.slice(-6)}`;
+    }
+    return trimmed.startsWith('ID:') ? trimmed : `ID: ${trimmed}`;
+  }
+
+  const digits = trimmed.replace(/\D/g, '');
 
   if (mask) {
     if (digits.length === 11 && digits.startsWith('09')) {

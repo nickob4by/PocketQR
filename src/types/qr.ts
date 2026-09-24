@@ -27,6 +27,8 @@ export interface QRCardItem {
   orderIndex: number;
   createdAt: number;
   updatedAt: number;
+  city?: string;
+  rail?: string;
 }
 
 export interface BankConfig {
@@ -57,7 +59,7 @@ export const BANK_CONFIGS: Record<BankProvider, BankConfig> = {
     badgeText: 'text-blue-300',
     borderAccent: 'border-blue-400/30',
     defaultCategory: 'personal',
-    identifiers: ['gcash', 'gxchange', 'g-xchange', 'mynt', 'ph.com.gcash'],
+    identifiers: ['gcash', 'gxch', 'gxchange', 'g-xchange', 'mynt', 'ph.com.gcash'],
   },
   maya: {
     id: 'maya',
@@ -71,7 +73,7 @@ export const BANK_CONFIGS: Record<BankProvider, BankConfig> = {
     badgeText: 'text-emerald-300',
     borderAccent: 'border-emerald-500/40',
     defaultCategory: 'personal',
-    identifiers: ['maya', 'paymaya', 'voyager', 'ph.maya', 'ph.com.paymaya'],
+    identifiers: ['maya', 'paym', 'paymaya', 'voyager', 'ph.maya', 'ph.com.paymaya'],
   },
   rcbc: {
     id: 'rcbc',
@@ -99,7 +101,7 @@ export const BANK_CONFIGS: Record<BankProvider, BankConfig> = {
     badgeText: 'text-red-300',
     borderAccent: 'border-red-400/30',
     defaultCategory: 'savings',
-    identifiers: ['bpi', 'bank of the philippine islands', 'ph.com.bpi'],
+    identifiers: ['bpi', 'bopi', 'bank of the philippine islands', 'ph.com.bpi'],
   },
   unionbank: {
     id: 'unionbank',
@@ -113,7 +115,7 @@ export const BANK_CONFIGS: Record<BankProvider, BankConfig> = {
     badgeText: 'text-orange-300',
     borderAccent: 'border-orange-400/30',
     defaultCategory: 'savings',
-    identifiers: ['unionbank', 'ubp', 'ph.com.unionbankph'],
+    identifiers: ['unionbank', 'ubph', 'ubp', 'ph.com.unionbankph'],
   },
   bdo: {
     id: 'bdo',
@@ -127,7 +129,7 @@ export const BANK_CONFIGS: Record<BankProvider, BankConfig> = {
     badgeText: 'text-yellow-300',
     borderAccent: 'border-yellow-400/30',
     defaultCategory: 'savings',
-    identifiers: ['bdo', 'bdo unibank', 'bdo network', 'ph.com.bdo'],
+    identifiers: ['bdo', 'bnor', 'bdo unibank', 'bdo network', 'ph.com.bdo'],
   },
   gotyme: {
     id: 'gotyme',
@@ -155,7 +157,7 @@ export const BANK_CONFIGS: Record<BankProvider, BankConfig> = {
     badgeText: 'text-orange-200',
     borderAccent: 'border-orange-400/30',
     defaultCategory: 'personal',
-    identifiers: ['seabank', 'shopee', 'shopeepay', 'searoc'],
+    identifiers: ['seabank', 'seab', 'shopee', 'shopeepay', 'searoc'],
   },
   metrobank: {
     id: 'metrobank',

@@ -26,6 +26,8 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
   const [bankCustomName, setBankCustomName] = useState('');
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  const [city, setCity] = useState('');
+  const [rail, setRail] = useState('');
   const [category, setCategory] = useState<AccountCategory>('personal');
   const [notes, setNotes] = useState('');
   const [rawPayload, setRawPayload] = useState<string | undefined>();
@@ -47,6 +49,8 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
       setBankCustomName(initialCard.bankCustomName || '');
       setAccountName(initialCard.accountName);
       setAccountNumber(initialCard.accountNumber);
+      setCity(initialCard.city || '');
+      setRail(initialCard.rail || '');
       setCategory(initialCard.category);
       setNotes(initialCard.notes || '');
       setRawPayload(initialCard.rawPayload);
@@ -64,6 +68,8 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
     setBankCustomName('');
     setAccountName('');
     setAccountNumber('');
+    setCity('');
+    setRail('');
     setCategory('personal');
     setNotes('');
     setRawPayload(undefined);
@@ -95,13 +101,19 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
 
           if (parsed.merchantName) setAccountName(parsed.merchantName);
           if (parsed.accountNumber) setAccountNumber(parsed.accountNumber);
+          if (parsed.city) setCity(parsed.city);
+          if (parsed.rail) setRail(parsed.rail);
           if (parsed.detectedBank) {
             setBank(parsed.detectedBank);
             const cfg = BANK_CONFIGS[parsed.detectedBank];
             if (cfg) setCategory(cfg.defaultCategory);
           }
           triggerHaptic('success');
-          onNotify('QR Ph Verified', parsed.merchantName || 'Details auto-populated', 'success');
+          onNotify(
+            `${parsed.bankName || 'Bank'} ${parsed.rail || 'QR Ph'} Verified`,
+            parsed.merchantName ? `${parsed.merchantName}${parsed.city ? ` (${parsed.city})` : ''}` : 'Details auto-populated',
+            'success'
+          );
         } else {
           setDecodeStatus('warning');
           setDecodeMessage('RAW_QR_DETECTED');
@@ -190,6 +202,8 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
       accountName: accountName.trim(),
       accountNumber: accountNumber.trim(),
       category,
+      city: city.trim() || undefined,
+      rail: rail.trim() || undefined,
       notes: notes.trim() || undefined,
       rawPayload,
       imageDataUrl: imageDataUrl || '',
