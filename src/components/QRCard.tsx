@@ -36,7 +36,12 @@ export const QRCard: React.FC<QRCardProps> = ({
 
   const rail = card.rail || parsedData?.rail || (card.rawPayload ? 'QR PH' : undefined);
   const city = card.city || parsedData?.city;
-  const accountNumberRaw = card.accountNumber || parsedData?.accountNumber || '';
+  const isStaleRoutingCode =
+    card.accountNumber === '99964403' ||
+    card.accountNumber === '217020000000656' ||
+    card.accountNumber?.startsWith('217020000000');
+
+  const accountNumberRaw = (!isStaleRoutingCode && card.accountNumber) || parsedData?.accountNumber || '';
   const displayAccount = formatAccountNumber(accountNumberRaw, false);
 
   return (

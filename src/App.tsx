@@ -66,7 +66,33 @@ export function App() {
     try {
       await seedDefaultCardsIfEmpty();
       const loaded = await getAllCards();
-      setCards(loaded);
+
+      // Automatically repair any cards that had stale system routing codes saved
+      const repairedCards = await Promise.all(
+        loaded.map(async (card) => {
+          const isStaleRouting =
+            card.accountNumber === '99964403' ||
+            card.accountNumber === '217020000000656' ||
+            card.accountNumber?.startsWith('217020000000');
+
+          if (card.rawPayload && (isStaleRouting || !card.city || !card.rail)) {
+            const parsed = parseQRPhPayload(card.rawPayload);
+            if (parsed.isValid && parsed.isQRPh) {
+              const updatedCard: QRCardItem = {
+                ...card,
+                accountNumber: isStaleRouting ? (parsed.accountNumber || card.accountNumber) : card.accountNumber,
+                city: card.city || parsed.city,
+                rail: card.rail || parsed.rail,
+              };
+              await saveCard(updatedCard);
+              return updatedCard;
+            }
+          }
+          return card;
+        })
+      );
+
+      setCards(repairedCards);
 
       const savedMask = await getSetting('privacy_mask', true);
       setPrivacyMask(savedMask);

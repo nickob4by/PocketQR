@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { QRCardItem } from '../types/qr';
-import { formatAccountNumber } from '../lib/emvcoParser';
+import { formatAccountNumber, parseQRPhPayload } from '../lib/emvcoParser';
 import { triggerHaptic } from '../lib/security';
 import {
   saveQRToGallery,
@@ -74,11 +74,21 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
 
   const bankName = (card.bankCustomName || card.bank).toUpperCase();
 
+  const isStaleRoutingCode =
+    card.accountNumber === '99964403' ||
+    card.accountNumber === '217020000000656' ||
+    card.accountNumber?.startsWith('217020000000');
+
+  const resolvedAccountNumber =
+    (!isStaleRoutingCode && card.accountNumber) ||
+    (card.rawPayload ? parseQRPhPayload(card.rawPayload).accountNumber : '') ||
+    card.accountNumber;
+
   const handleCopyNumber = () => {
-    navigator.clipboard.writeText(card.accountNumber);
+    navigator.clipboard.writeText(resolvedAccountNumber);
     setCopiedNumber(true);
     triggerHaptic('success');
-    onNotify('Number Copied!', card.accountNumber, 'success');
+    onNotify('Number Copied!', resolvedAccountNumber, 'success');
     setTimeout(() => setCopiedNumber(false), 2000);
   };
 
@@ -106,7 +116,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
     const res = await copyQRImageToClipboard({
       rawPayload: card.rawPayload,
       imageDataUrl: card.imageDataUrl,
-      textFallback: card.accountNumber,
+      textFallback: resolvedAccountNumber,
     });
 
     if (res.success) {
@@ -239,7 +249,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                   smartphone
                 </span>
                 <span className="font-label-md text-label-md text-on-surface font-bold tracking-wider text-xs">
-                  {formatAccountNumber(card.accountNumber, false)}
+                  {formatAccountNumber(resolvedAccountNumber, false)}
                 </span>
                 <button
                   onClick={handleCopyNumber}

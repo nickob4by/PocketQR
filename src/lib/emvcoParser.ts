@@ -157,7 +157,16 @@ function extractAccountNumber(
   _tags: Record<string, string>,
   subTags: Record<string, Record<string, string>>
 ): string | undefined {
-  // 1. Check merchant account info subtags (tags 26-51) for mobile or numeric account
+  // 1. In P2P QR Ph (com.p2pqrpay), subtag 04 is the unique user proxy reference / account token (e.g. DWQM4TK3JDNXIB3FS)
+  for (let tagNum = 26; tagNum <= 51; tagNum++) {
+    const tagKey = tagNum.toString().padStart(2, '0');
+    const sub = subTags[tagKey];
+    if (sub && sub['04'] && sub['04'].length >= 4) {
+      return sub['04'];
+    }
+  }
+
+  // 2. Check merchant account info subtags (tags 26-51) for mobile or numeric account
   for (let tagNum = 26; tagNum <= 51; tagNum++) {
     const tagKey = tagNum.toString().padStart(2, '0');
     const sub = subTags[tagKey];
@@ -171,7 +180,7 @@ function extractAccountNumber(
     }
   }
 
-  // 2. Check Tag 62 (Additional Data Field)
+  // 3. Check Tag 62 (Additional Data Field)
   if (subTags['62']) {
     const s62 = subTags['62'];
     for (const k of ['02', '01', '05', '07']) {
@@ -179,15 +188,6 @@ function extractAccountNumber(
         const cleaned = cleanPotentialNumber(s62[k]);
         if (cleaned) return cleaned;
       }
-    }
-  }
-
-  // 3. Fallback: Check for user reference / proxy token in subtag 04
-  for (let tagNum = 26; tagNum <= 51; tagNum++) {
-    const tagKey = tagNum.toString().padStart(2, '0');
-    const sub = subTags[tagKey];
-    if (sub && sub['04'] && sub['04'].length >= 4) {
-      return sub['04'];
     }
   }
 
@@ -207,8 +207,14 @@ function cleanPotentialNumber(val: string): string | undefined {
     return num;
   }
 
-  // Skip known national clearing / participant routing codes (e.g. 99964403 for InstaPay)
-  if (trimmed === '99964403') {
+  // Skip known national clearing / participant routing codes and fixed settlement switch prefixes:
+  // - 99964403: InstaPay Clearing Code
+  // - 217020000000656 / 21702000...: GCash fixed P2P settlement bridge
+  if (
+    trimmed === '99964403' ||
+    trimmed === '217020000000656' ||
+    trimmed.startsWith('217020000000')
+  ) {
     return undefined;
   }
 
