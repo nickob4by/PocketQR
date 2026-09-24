@@ -225,7 +225,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-surface text-on-surface flex flex-col font-sans pb-24 select-none">
+    <div className="fixed inset-0 bg-surface text-on-surface flex flex-col font-sans overflow-hidden">
       {/* Top Header */}
       <Header
         onScanToPayClick={() => setIsScanToPayOpen(true)}
@@ -244,7 +244,7 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-md w-full mx-auto px-margin pt-3 pb-8 flex flex-col">
+      <main className="flex-1 max-w-md w-full mx-auto px-margin pt-3 pb-32 flex flex-col overflow-y-auto overscroll-y-contain touch-pan-y">
         {currentTab === 'vault' && (
           <>
             {/* Category Pills Filter */}

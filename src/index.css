@@ -17,9 +17,12 @@ html, body {
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
-  user-select: none;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
+}
+
+main {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .pb-safe {

@@ -228,7 +228,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   const sramUsedPercent = Math.min(100, Math.round((cardCount / 16) * 100 * 10) / 10);
 
   return (
-    <div className="flex flex-col w-full gap-space-lg select-none pb-28 pt-2">
+    <div className="flex flex-col w-full gap-space-lg pt-2 pb-12">
       {/* SYSTEM TELEMETRY HUD CARD */}
       <div className="relative w-full rounded-xl bg-surface-container-low p-space-md shadow-md overflow-hidden border border-outline-variant/30">
         <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-primary-container/5 rounded-full blur-xl pointer-events-none"></div>
