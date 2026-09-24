@@ -44,10 +44,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   // Purge Confirmation Modal
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
-  // Floating Flash Telemetry Micro-Notice
-  const [flashNotice, setFlashNotice] = useState<string | null>(null);
-  const flashTimerRef = useRef<any>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,15 +51,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     const savedBio = localStorage.getItem('pocketqr_biometric_enabled') === 'true';
     setBiometricEnabled(savedBio);
   }, []);
-
-  // Flash micro-notice trigger
-  const triggerFlash = (text: string) => {
-    setFlashNotice(text);
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = setTimeout(() => {
-      setFlashNotice(null);
-    }, 2400);
-  };
 
   // CRT Scanline Toggle
   const handleToggleCrt = () => {
@@ -76,7 +63,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
       document.body.classList.remove('crt-scanlines');
     }
     triggerHaptic('light');
-    triggerFlash(`BUS_UPDATE // CRT_SCANLINES: ${next ? 'ENGAGED' : 'DISENGAGED'}`);
   };
 
   // OLED Contrast Toggle
@@ -90,7 +76,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
       document.documentElement.classList.remove('oled-deep-black');
     }
     triggerHaptic('light');
-    triggerFlash(`BUS_UPDATE // OLED_CONTRAST: ${next ? 'DEEP_0NIT' : 'STANDARD'}`);
   };
 
   // Haptic Actuator Selector
@@ -106,15 +91,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     } else {
       triggerHaptic('warning');
     }
-    triggerFlash(`HAPTIC ACTUATOR CALIBRATED: ${level}`);
   };
 
   // Theme Tone Selector
-  const handleSetThemeTone = (tone: 'MINT' | 'AMBER' | 'CYAN', label: string) => {
+  const handleSetThemeTone = (tone: 'MINT' | 'AMBER' | 'CYAN') => {
     setThemeTone(tone);
     localStorage.setItem('pocketqr_theme_tone', tone);
     triggerHaptic('light');
-    triggerFlash(`PHOSPHOR MATRIX TUNED: ${label}`);
   };
 
   // Biometrics Interlock Toggle
@@ -125,27 +108,23 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
         setBiometricEnabled(true);
         localStorage.setItem('pocketqr_biometric_enabled', 'true');
         triggerHaptic('success');
-        triggerFlash('ENCLAVE_ARMED // BIOMETRIC INTERLOCK ENGAGED');
         onNotify('Biometric Lock Active', 'Fingerprint / Face ID interlock engaged', 'success');
       } else {
-        triggerFlash('INTERLOCK_ABORTED // FAILED OR CANCELLED');
-        onNotify('Biometric Skipped', 'Authentication cancelled or not enrolled', 'info');
+        onNotify('Biometric Cancelled', 'Authentication was cancelled or not enrolled', 'info');
       }
     } else {
       setBiometricEnabled(false);
       localStorage.setItem('pocketqr_biometric_enabled', 'false');
       triggerHaptic('light');
-      triggerFlash('BUS_UPDATE // BIOMETRIC INTERLOCK DISENGAGED');
-      onNotify('Biometric Lock Disengaged', '', 'info');
+      onNotify('Biometric Lock Disengaged', 'Open access restored', 'info');
     }
   };
 
   // Timeout Watchdog Option
-  const handleSetTimeout = (opt: '30s' | '2m' | '5m', label: string) => {
+  const handleSetTimeout = (opt: '30s' | '2m' | '5m') => {
     setLockoutInterval(opt);
     localStorage.setItem('pocketqr_lockout_interval', opt);
     triggerHaptic('light');
-    triggerFlash(`LOCKOUT WATCHDOG SET: ${label}`);
   };
 
   // Optical ISO Boost Toggle
@@ -154,13 +133,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     setIsoBoost(next);
     localStorage.setItem('pocketqr_iso_boost', next ? 'true' : 'false');
     triggerHaptic('light');
-    triggerFlash(`BUS_UPDATE // OPTIC_ISO_STROBE: ${next ? 'ENGAGED' : 'DISENGAGED'}`);
   };
 
   // Export Cartridges Backup (.BIN / .JSON)
   const handleExport = async () => {
     try {
-      triggerFlash('DUMPING ENCRYPTED .BIN MATRIX TO SECURE STORAGE...');
       const json = await exportBackup();
       const blob = new Blob([json], { type: 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
@@ -173,10 +150,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       triggerHaptic('success');
-      triggerFlash('EEPROM ARCHIVE EXPORT COMPLETED');
-      onNotify('EEPROM Backup Dumped', 'Vault cartridges archived successfully', 'success');
+      onNotify('EEPROM Backup Exported', 'Saved cartridge archive to device storage', 'success');
     } catch (e: any) {
-      onNotify('Dump Failed', e?.message || 'Could not export backup', 'error');
+      onNotify('Export Failed', e?.message || 'Could not export backup', 'error');
     }
   };
 
@@ -186,18 +162,15 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     if (!file) return;
 
     try {
-      triggerFlash('READING QRPH COMPLIANT CART ARCHIVE...');
       const text = await file.text();
       const res = await importBackup(text);
 
       if (res.success) {
         onReloadCards();
         triggerHaptic('success');
-        triggerFlash(`EEPROM RESTORED: ${res.count} ROM SLOTS MOUNTED`);
         onNotify('EEPROM Restored!', `Restored ${res.count} ROM cartridges`, 'success');
       } else {
-        triggerFlash('RESTORE_ERR // INVALID CARTRIDGE HEADER');
-        onNotify('Restore Failed', res.error || 'Invalid backup file', 'error');
+        onNotify('Restore Failed', res.error || 'Invalid backup file format', 'error');
       }
     } catch (err: any) {
       onNotify('Error Reading File', err?.message || 'Failed to parse file', 'error');
@@ -211,7 +184,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     await resetToSampleCards();
     onReloadCards();
     triggerHaptic('success');
-    triggerFlash('DEFAULT CART MATRIX FLASHED TO ROM');
     onNotify('Defaults Loaded', 'Restored GCash, Maya, and BPI cartridges', 'success');
   };
 
@@ -221,7 +193,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     await clearAllCards();
     onReloadCards();
     triggerHaptic('warning');
-    triggerFlash('VOLATILE EEPROM ZEROED // 0 SLOTS ACTIVE');
     onNotify('Memory Scrubbed', 'All bank slots and cryptographic keys zero-filled', 'info');
   };
 
@@ -251,7 +222,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
         <div className="grid grid-cols-3 gap-space-xs pt-space-xs bg-surface-container-lowest/80 rounded-lg p-space-xs border border-outline-variant/20">
           <div className="flex flex-col p-1.5 rounded bg-surface-container">
             <span className="text-on-surface-variant font-label-sm text-label-sm">KERNEL</span>
-            <span className="text-primary-fixed font-label-md text-label-md truncate">v1.0.5-APK</span>
+            <span className="text-primary-fixed font-label-md text-label-md truncate">v1.0.10-APK</span>
           </div>
           <div className="flex flex-col p-1.5 rounded bg-surface-container">
             <span className="text-on-surface-variant font-label-sm text-label-sm">SRAM USED</span>
@@ -282,7 +253,10 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
 
         <div className="flex flex-col gap-space-xs rounded-xl bg-surface-container-low p-space-sm shadow-sm border border-outline-variant/20">
           {/* CRT Scanline Filter Toggle */}
-          <div className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors">
+          <div
+            onClick={handleToggleCrt}
+            className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer"
+          >
             <div className="flex items-center gap-space-md">
               <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary-fixed flex-shrink-0">
                 <span className="material-symbols-outlined text-[22px]">tv</span>
@@ -298,9 +272,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
             </div>
 
             {/* Hardware Style Toggle Switch */}
-            <button
-              onClick={handleToggleCrt}
-              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors cursor-pointer flex-shrink-0 shadow-inner ${
+            <div
+              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors flex-shrink-0 shadow-inner ${
                 crtScanline ? 'bg-primary-container' : 'bg-surface-container-high'
               }`}
             >
@@ -311,11 +284,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               >
                 <div className={`w-1.5 h-1.5 rounded-full ${crtScanline ? 'bg-primary' : 'bg-outline'}`}></div>
               </div>
-            </button>
+            </div>
           </div>
 
           {/* OLED Contrast Mode Toggle */}
-          <div className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors">
+          <div
+            onClick={handleToggleOled}
+            className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer"
+          >
             <div className="flex items-center gap-space-md">
               <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-tertiary-fixed flex-shrink-0">
                 <span className="material-symbols-outlined text-[22px]">contrast</span>
@@ -330,9 +306,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={handleToggleOled}
-              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors cursor-pointer flex-shrink-0 shadow-inner ${
+            <div
+              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors flex-shrink-0 shadow-inner ${
                 oledBlack ? 'bg-primary-container' : 'bg-surface-container-high'
               }`}
             >
@@ -343,7 +318,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               >
                 <div className={`w-1.5 h-1.5 rounded-full ${oledBlack ? 'bg-primary' : 'bg-outline'}`}></div>
               </div>
-            </button>
+            </div>
           </div>
 
           {/* Matrix Haptic Feedback Selector */}
@@ -363,50 +338,20 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               ERM Linear Actuator click weight on trigger press
             </span>
             <div className="grid grid-cols-4 gap-1.5 pt-1">
-              <button
-                type="button"
-                onClick={() => handleSetHaptic('OFF')}
-                className={`py-2 px-1 rounded-DEFAULT font-label-sm text-label-sm transition-all active:translate-y-0.5 uppercase tracking-wider text-center cursor-pointer ${
-                  hapticLevel === 'OFF'
-                    ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
-                    : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                [OFF]
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetHaptic('LOW')}
-                className={`py-2 px-1 rounded-DEFAULT font-label-sm text-label-sm transition-all active:translate-y-0.5 uppercase tracking-wider text-center cursor-pointer ${
-                  hapticLevel === 'LOW'
-                    ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
-                    : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                [LOW]
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetHaptic('NORM')}
-                className={`py-2 px-1 rounded-DEFAULT font-label-sm text-label-sm transition-all active:translate-y-0.5 uppercase tracking-wider text-center cursor-pointer ${
-                  hapticLevel === 'NORM'
-                    ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
-                    : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                [NORM]
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetHaptic('MAX')}
-                className={`py-2 px-1 rounded-DEFAULT font-label-sm text-label-sm transition-all active:translate-y-0.5 uppercase tracking-wider text-center cursor-pointer ${
-                  hapticLevel === 'MAX'
-                    ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
-                    : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                [TURBO]
-              </button>
+              {(['OFF', 'LOW', 'NORM', 'MAX'] as const).map((lvl) => (
+                <button
+                  key={lvl}
+                  type="button"
+                  onClick={() => handleSetHaptic(lvl)}
+                  className={`py-2 px-1 rounded-DEFAULT font-label-sm text-label-sm transition-all active:translate-y-0.5 uppercase tracking-wider text-center cursor-pointer ${
+                    hapticLevel === lvl
+                      ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
+                      : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  [{lvl === 'MAX' ? 'TURBO' : lvl}]
+                </button>
+              ))}
             </div>
           </div>
 
@@ -427,7 +372,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               {/* Mint Theme */}
               <button
                 type="button"
-                onClick={() => handleSetThemeTone('MINT', 'MINT 520NM')}
+                onClick={() => handleSetThemeTone('MINT')}
                 className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
                   themeTone === 'MINT'
                     ? 'bg-surface-container-highest shadow-sm'
@@ -447,7 +392,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               {/* Amber Theme */}
               <button
                 type="button"
-                onClick={() => handleSetThemeTone('AMBER', 'AMBER 590NM')}
+                onClick={() => handleSetThemeTone('AMBER')}
                 className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
                   themeTone === 'AMBER'
                     ? 'bg-surface-container-highest shadow-sm'
@@ -467,7 +412,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               {/* Cyan Theme */}
               <button
                 type="button"
-                onClick={() => handleSetThemeTone('CYAN', 'CYAN 470NM')}
+                onClick={() => handleSetThemeTone('CYAN')}
                 className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
                   themeTone === 'CYAN'
                     ? 'bg-surface-container-highest shadow-sm'
@@ -502,7 +447,10 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
 
         <div className="flex flex-col gap-space-xs rounded-xl bg-surface-container-low p-space-sm shadow-sm border border-outline-variant/20">
           {/* Biometric PIN / Hardware Key */}
-          <div className="flex items-center justify-between p-space-md rounded-lg bg-surface-container">
+          <div
+            onClick={handleToggleBiometrics}
+            className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer"
+          >
             <div className="flex items-center gap-space-md">
               <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary-fixed flex-shrink-0">
                 <span className="material-symbols-outlined text-[22px]">fingerprint</span>
@@ -522,9 +470,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={handleToggleBiometrics}
-              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors cursor-pointer flex-shrink-0 shadow-inner ${
+            <div
+              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors flex-shrink-0 shadow-inner ${
                 biometricEnabled ? 'bg-primary-container' : 'bg-surface-container-high'
               }`}
             >
@@ -535,11 +482,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               >
                 <div className={`w-1.5 h-1.5 rounded-full ${biometricEnabled ? 'bg-primary' : 'bg-outline'}`}></div>
               </div>
-            </button>
+            </div>
           </div>
 
           {/* Stealth Mode Balance Masking */}
-          <div className="flex items-center justify-between p-space-md rounded-lg bg-surface-container">
+          <div
+            onClick={onTogglePrivacyMask}
+            className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer"
+          >
             <div className="flex items-center gap-space-md">
               <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-secondary-container flex-shrink-0">
                 <span className="material-symbols-outlined text-[22px]">visibility_off</span>
@@ -559,12 +509,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                onTogglePrivacyMask();
-                triggerFlash(`STEALTH_MASK: ${!privacyMask ? 'ENFORCED' : 'REVEALED'}`);
-              }}
-              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors cursor-pointer flex-shrink-0 shadow-inner ${
+            <div
+              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors flex-shrink-0 shadow-inner ${
                 privacyMask ? 'bg-primary-container' : 'bg-surface-container-high'
               }`}
             >
@@ -575,7 +521,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               >
                 <div className={`w-1.5 h-1.5 rounded-full ${privacyMask ? 'bg-primary' : 'bg-outline'}`}></div>
               </div>
-            </button>
+            </div>
           </div>
 
           {/* Auto Timeout Lockout */}
@@ -590,44 +536,28 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               <span className="font-label-sm text-label-sm text-tertiary">SESSION_WATCHDOG</span>
             </div>
             <div className="grid grid-cols-3 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => handleSetTimeout('30s', '30 SECONDS')}
-                className={`py-2 px-2 rounded-DEFAULT font-label-sm text-label-sm tracking-wider uppercase text-center active:translate-y-0.5 cursor-pointer ${
-                  lockoutInterval === '30s'
-                    ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
-                    : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                30 SECONDS
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetTimeout('2m', '2 MINUTES')}
-                className={`py-2 px-2 rounded-DEFAULT font-label-sm text-label-sm tracking-wider uppercase text-center active:translate-y-0.5 cursor-pointer ${
-                  lockoutInterval === '2m'
-                    ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
-                    : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                2 MINUTES
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetTimeout('5m', '5 MINUTES')}
-                className={`py-2 px-2 rounded-DEFAULT font-label-sm text-label-sm tracking-wider uppercase text-center active:translate-y-0.5 cursor-pointer ${
-                  lockoutInterval === '5m'
-                    ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
-                    : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                5 MINUTES
-              </button>
+              {(['30s', '2m', '5m'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => handleSetTimeout(opt)}
+                  className={`py-2 px-2 rounded-DEFAULT font-label-sm text-label-sm tracking-wider uppercase text-center active:translate-y-0.5 cursor-pointer ${
+                    lockoutInterval === opt
+                      ? 'bg-primary-container text-on-primary-container font-bold shadow-[0_2px_0_0_#006843]'
+                      : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  {opt === '30s' ? '30 SECONDS' : opt === '2m' ? '2 MINUTES' : '5 MINUTES'}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Optical Scanner Sensor Tuning */}
-          <div className="flex items-center justify-between p-space-md rounded-lg bg-surface-container">
+          <div
+            onClick={handleToggleIso}
+            className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer"
+          >
             <div className="flex items-center gap-space-md">
               <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary-fixed flex-shrink-0">
                 <span className="material-symbols-outlined text-[22px]">center_focus_strong</span>
@@ -642,9 +572,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={handleToggleIso}
-              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors cursor-pointer flex-shrink-0 shadow-inner ${
+            <div
+              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors flex-shrink-0 shadow-inner ${
                 isoBoost ? 'bg-primary-container' : 'bg-surface-container-high'
               }`}
             >
@@ -655,7 +584,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               >
                 <div className={`w-1.5 h-1.5 rounded-full ${isoBoost ? 'bg-primary' : 'bg-outline'}`}></div>
               </div>
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -906,22 +835,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           </div>
         </div>
       )}
-
-      {/* FLOATING FLASH TELEMETRY NOTICE (INTERACTIVE MICRO-FEEDBACK) */}
-      <div
-        id="flash-notice"
-        className={`fixed top-20 left-4 right-4 max-w-md mx-auto z-[100] p-space-md rounded-xl bg-surface-container-highest/95 backdrop-blur-xl text-primary-fixed font-label-sm text-label-sm flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.8)] border border-primary-fixed-dim/50 transition-all duration-300 ${
-          flashNotice
-            ? 'opacity-100 translate-y-0 pointer-events-auto'
-            : 'opacity-0 -translate-y-4 pointer-events-none'
-        }`}
-      >
-        <div className="flex items-center gap-space-xs">
-          <span className="material-symbols-outlined text-[16px] animate-spin text-primary-fixed">sync</span>
-          <span id="flash-notice-text" className="font-bold tracking-wide">{flashNotice || 'OPERATION EXECUTED'}</span>
-        </div>
-        <span className="text-outline font-label-sm text-[8px] bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant/40">[ACK]</span>
-      </div>
     </div>
   );
 };
