@@ -87,6 +87,7 @@ export async function saveQRToGallery(options: {
   imageDataUrl?: string;
   fileName?: string;
   accountName?: string;
+  isTemporary?: boolean;
 }): Promise<{ success: boolean; message: string }> {
   try {
     const dataUrl = await generateQRPngDataUrl(
@@ -99,19 +100,23 @@ export async function saveQRToGallery(options: {
       return { success: false, message: 'No valid QR code to save.' };
     }
 
+    const isTemporary = options.isTemporary ?? true;
     const cleanName = (options.accountName || 'QR')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .slice(0, 30);
+    const prefix = isTemporary ? 'PocketQR_temp' : 'PocketQR';
     const fileName =
-      options.fileName || `PocketQR_${cleanName}_${Date.now()}.png`;
+      options.fileName || `${prefix}_${cleanName}_${Date.now()}.png`;
 
-    // 1. Native Android MediaStore insertion
+    // 1. Native Android MediaStore insertion (Temporary QRs auto-clean previous files & auto-delete after use)
     if (isNativeAndroid()) {
-      const res = await saveImageToGalleryNative(dataUrl, fileName);
+      const res = await saveImageToGalleryNative(dataUrl, fileName, isTemporary);
       if (res.success) {
         return {
           success: true,
-          message: 'Saved to Recent Photos! Tap "Upload QR" in your bank app.',
+          message: isTemporary
+            ? 'Saved temporarily to Recent Photos! Top of gallery, auto-cleans after use.'
+            : 'Saved to Photo Gallery!',
         };
       }
     }

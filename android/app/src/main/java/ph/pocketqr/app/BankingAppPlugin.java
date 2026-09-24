@@ -23,6 +23,9 @@ import android.util.Base64;
 import android.util.Log;
 import android.content.ClipboardManager;
 import android.content.ClipData;
+import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.core.content.FileProvider;
 
@@ -233,14 +236,61 @@ public class BankingAppPlugin extends Plugin {
     }
 
     /**
+     * Purges temporary PocketQR images from the phone's gallery so they don't accumulate.
+     */
+    public static void cleanupTemporaryQRsStatic(Context context) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences("pocketqr_gallery_prefs", Context.MODE_PRIVATE);
+            String lastUriStr = prefs.getString("last_temp_qr_uri", null);
+            ContentResolver resolver = context.getContentResolver();
+            if (lastUriStr != null) {
+                try {
+                    resolver.delete(Uri.parse(lastUriStr), null, null);
+                } catch (Exception ignored) {}
+                prefs.edit().remove("last_temp_qr_uri").apply();
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                Uri collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+                String selection = MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ? AND " + MediaStore.MediaColumns.DISPLAY_NAME + " LIKE ?";
+                String[] selectionArgs = new String[]{"Pictures/PocketQR%", "PocketQR_temp_%"};
+                resolver.delete(collection, selection, selectionArgs);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Cleanup of temporary QRs failed", e);
+        }
+    }
+
+    /**
+     * Cleans up temporary QR images on demand.
+     */
+    @PluginMethod
+    public void cleanupTemporaryQRs(PluginCall call) {
+        cleanupTemporaryQRsStatic(getContext());
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        call.resolve(ret);
+    }
+
+    /**
      * Saves a base64 image directly to Android's MediaStore (Pictures/PocketQR)
      * so it immediately appears at the top of the photo gallery / recent photos.
+     * Temporary images automatically clean up previous ones and auto-delete after 3 minutes.
      */
     @PluginMethod
     public void saveImageToGallery(PluginCall call) {
         String base64Data = call.getString("base64");
         String fileName = call.getString("fileName");
-        if (fileName == null || fileName.isEmpty()) {
+        boolean isTemporary = call.getBoolean("isTemporary", true);
+
+        Context context = getContext();
+
+        if (isTemporary) {
+            // Clean up any existing temporary QR before creating the fresh top photo
+            cleanupTemporaryQRsStatic(context);
+            if (fileName == null || fileName.isEmpty() || !fileName.startsWith("PocketQR_temp_")) {
+                fileName = "PocketQR_temp_" + System.currentTimeMillis() + ".png";
+            }
+        } else if (fileName == null || fileName.isEmpty()) {
             fileName = "PocketQR_" + System.currentTimeMillis() + ".png";
         }
         if (!fileName.toLowerCase().endsWith(".png") && !fileName.toLowerCase().endsWith(".jpg")) {
@@ -263,7 +313,6 @@ public class BankingAppPlugin extends Plugin {
                 return;
             }
 
-            Context context = getContext();
             ContentResolver resolver = context.getContentResolver();
             ContentValues contentValues = new ContentValues();
             contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
@@ -295,9 +344,23 @@ public class BankingAppPlugin extends Plugin {
                 MediaScannerConnection.scanFile(context, new String[]{imageUri.getPath()}, new String[]{"image/png"}, null);
             }
 
+            if (isTemporary) {
+                SharedPreferences prefs = context.getSharedPreferences("pocketqr_gallery_prefs", Context.MODE_PRIVATE);
+                prefs.edit()
+                    .putString("last_temp_qr_uri", imageUri.toString())
+                    .putLong("last_temp_qr_time", System.currentTimeMillis())
+                    .apply();
+
+                // Auto-cleanup after 3 minutes in background
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    cleanupTemporaryQRsStatic(context);
+                }, 3 * 60 * 1000);
+            }
+
             JSObject ret = new JSObject();
             ret.put("success", true);
             ret.put("uri", imageUri.toString());
+            ret.put("isTemporary", isTemporary);
             call.resolve(ret);
         } catch (Exception e) {
             Log.e(TAG, "Failed to save image to gallery", e);

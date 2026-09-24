@@ -121,7 +121,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
       try {
         confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
       } catch {}
-      onNotify('QR Saved to Recent Photos!', 'Open GCash/Bank and tap "Upload QR"', 'success');
+      onNotify('Saved to Recent Photos!', 'Top photo for bank upload — auto-cleans automatically after use.', 'success');
     } else {
       onNotify('Save Failed', res.message, 'error');
     }

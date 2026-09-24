@@ -21,4 +21,16 @@ public class MainActivity extends BridgeActivity {
             }
         });
     }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences("pocketqr_gallery_prefs", MODE_PRIVATE);
+            long lastTime = prefs.getLong("last_temp_qr_time", 0);
+            if (lastTime > 0 && (System.currentTimeMillis() - lastTime) > 2 * 60 * 1000) {
+                BankingAppPlugin.cleanupTemporaryQRsStatic(this);
+            }
+        } catch (Exception ignored) {}
+    }
 }

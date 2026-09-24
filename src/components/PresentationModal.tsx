@@ -95,7 +95,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
     if (res.success) {
       setSavedToGallery(true);
       triggerHaptic('success');
-      onNotify('Saved to Recent Photos!', 'QR Image is ready to upload in banking apps', 'success');
+      onNotify('Saved to Recent Photos!', 'Top photo for bank upload — auto-cleans automatically after use.', 'success');
     } else {
       onNotify('Save Failed', res.message, 'error');
     }

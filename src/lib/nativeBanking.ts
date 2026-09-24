@@ -16,7 +16,9 @@ interface BankingAppPluginInterface {
   saveImageToGallery(options: {
     base64: string;
     fileName?: string;
-  }): Promise<{ success: boolean; uri?: string }>;
+    isTemporary?: boolean;
+  }): Promise<{ success: boolean; uri?: string; isTemporary?: boolean }>;
+  cleanupTemporaryQRs(): Promise<{ success: boolean }>;
   copyImageToClipboard(options: {
     base64?: string;
     text?: string;
@@ -112,16 +114,33 @@ export async function openNativeSystemChooser(apps: PayingBankApp[]): Promise<bo
  * Saves a base64 image directly to Android's MediaStore (Pictures/PocketQR)
  * so it immediately appears in the photo gallery / Recent Photos for banking apps.
  */
-export async function saveImageToGalleryNative(base64: string, fileName?: string): Promise<{ success: boolean; uri?: string }> {
+export async function saveImageToGalleryNative(
+  base64: string,
+  fileName?: string,
+  isTemporary = true
+): Promise<{ success: boolean; uri?: string; isTemporary?: boolean }> {
   if (!isNativeAndroid()) {
     return { success: false };
   }
 
   try {
-    return await BankingApp.saveImageToGallery({ base64, fileName });
+    return await BankingApp.saveImageToGallery({ base64, fileName, isTemporary });
   } catch (err) {
     console.warn('Native saveImageToGallery failed:', err);
     return { success: false };
+  }
+}
+
+/**
+ * Purges any temporary QR images created by PocketQR in the native gallery.
+ */
+export async function cleanupTemporaryQRsNative(): Promise<boolean> {
+  if (!isNativeAndroid()) return false;
+  try {
+    const res = await BankingApp.cleanupTemporaryQRs();
+    return res.success;
+  } catch {
+    return false;
   }
 }
 
