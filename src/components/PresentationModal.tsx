@@ -27,7 +27,6 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   const [copiedQR, setCopiedQR] = useState(false);
   const [savedToGallery, setSavedToGallery] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [wakeLockActive, setWakeLockActive] = useState(false);
   const wakeLockRef = useRef<any>(null);
 
   // Screen Wake Lock API to prevent screen timeout while presenting
@@ -42,13 +41,9 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
           const lock = await (navigator as any).wakeLock.request('screen');
           if (active) {
             wakeLockRef.current = lock;
-            setWakeLockActive(true);
-            lock.addEventListener('release', () => {
-              if (active) setWakeLockActive(false);
-            });
           }
         } catch {
-          if (active) setWakeLockActive(false);
+          // wakeLock unavailable or ignored
         }
       }
     }
@@ -145,7 +140,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface animate-in fade-in duration-200 overflow-y-auto safe-p">
       <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-start gap-2 py-2 sm:py-3 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
         {/* Header */}
-        <header className="sticky top-0 w-full z-10 pt-safe bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30 pb-2">
+        <header className="sticky top-0 w-full z-10 pt-safe bg-surface border-b border-outline-variant/30 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-space-sm">
               <button
@@ -180,24 +175,6 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
 
         {/* Main Content Area */}
         <div className="flex flex-col w-full pt-1 pb-2 gap-2.5 select-none font-mono">
-          {/* Telemetry & Hardware Status Bar */}
-          <div className="flex items-center justify-between bg-surface-container-low px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
-            <div className="flex items-center gap-space-xs">
-              <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
-              <span className="font-label-sm text-label-sm text-primary tracking-widest uppercase font-bold text-[11px]">
-                RX // CARTRIDGE LOADED
-              </span>
-            </div>
-            <div className="flex items-center gap-space-xs bg-surface-container-highest px-space-sm py-0.5 rounded-full border border-outline-variant/40 text-[10px]">
-              <span className="material-symbols-outlined text-[14px] text-secondary">
-                light_mode
-              </span>
-              <span className="font-label-sm text-label-sm text-secondary tracking-wider font-bold">
-                {wakeLockActive ? 'MAX LUX ACTIVE' : 'AUTO LUX'}
-              </span>
-            </div>
-          </div>
-
           {/* Unified Clean Cashier Scan Card */}
           <div
             className={`relative bg-surface-container-high p-space-md rounded-xl shadow-xl border border-outline-variant/40 flex flex-col items-center overflow-hidden transition-transform duration-300 ${

@@ -144,23 +144,23 @@ export const QRCard: React.FC<QRCardProps> = ({
               onEdit(card);
             }}
             title="Tap to rename"
-            className="flex items-center gap-1 text-left group/edit transition-colors max-w-full truncate cursor-pointer"
+            className="flex items-center gap-1.5 text-left group/edit transition-colors max-w-full truncate cursor-pointer"
           >
-            <span className="font-headline-md text-primary tracking-tight truncate border-b border-primary/20 group-hover/edit:border-primary font-bold text-sm">
+            <span className="font-headline-md text-primary tracking-tight truncate border-b border-primary/20 group-hover/edit:border-primary font-bold text-base sm:text-lg">
               {card.accountName}
             </span>
-            <span className="material-symbols-outlined text-primary text-[13px] flex-shrink-0">
+            <span className="material-symbols-outlined text-primary text-[15px] flex-shrink-0">
               verified
             </span>
-            <span className="material-symbols-outlined text-outline text-[11px] opacity-70 group-hover/edit:text-primary transition-colors flex-shrink-0">
+            <span className="material-symbols-outlined text-outline text-[13px] opacity-70 group-hover/edit:text-primary transition-colors flex-shrink-0">
               edit
             </span>
           </button>
         </div>
 
         {/* Masked Account / Mobile Number with 1-Tap Copy */}
-        <div className="flex items-center gap-1.5">
-          <p className="font-label-md text-on-surface-variant tracking-wider font-mono text-[11px]">
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <p className="font-label-md text-on-surface-variant tracking-wider font-mono text-xs font-medium">
             {formatAccountNumber(card.accountNumber, isMasked)}
           </p>
 
