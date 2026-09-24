@@ -146,13 +146,13 @@ export const QRCard: React.FC<QRCardProps> = ({
             title="Tap to rename"
             className="flex items-center gap-1.5 text-left group/edit transition-colors max-w-full truncate cursor-pointer"
           >
-            <span className="font-headline-md text-primary tracking-tight truncate border-b border-primary/20 group-hover/edit:border-primary font-bold text-base sm:text-lg">
+            <span className="font-headline-md text-primary tracking-tight truncate border-b border-primary/20 group-hover/edit:border-primary font-bold text-xl sm:text-2xl">
               {card.accountName}
             </span>
-            <span className="material-symbols-outlined text-primary text-[15px] flex-shrink-0">
+            <span className="material-symbols-outlined text-primary text-[18px] flex-shrink-0">
               verified
             </span>
-            <span className="material-symbols-outlined text-outline text-[13px] opacity-70 group-hover/edit:text-primary transition-colors flex-shrink-0">
+            <span className="material-symbols-outlined text-outline text-[15px] opacity-70 group-hover/edit:text-primary transition-colors flex-shrink-0">
               edit
             </span>
           </button>
@@ -160,7 +160,7 @@ export const QRCard: React.FC<QRCardProps> = ({
 
         {/* Masked Account / Mobile Number with 1-Tap Copy */}
         <div className="flex items-center gap-1.5 mt-0.5">
-          <p className="font-label-md text-on-surface-variant tracking-wider font-mono text-xs font-medium">
+          <p className="font-label-md text-on-surface-variant tracking-wider font-mono text-sm font-medium">
             {formatAccountNumber(card.accountNumber, isMasked)}
           </p>
 

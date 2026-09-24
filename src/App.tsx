@@ -95,6 +95,52 @@ export function App() {
     loadCardsData();
   }, [loadCardsData]);
 
+  // Modal History Stack Manager (Supports Android hardware / system Back button)
+  const openModal = useCallback((type: string) => {
+    window.history.pushState({ pocketqrModal: type }, '');
+  }, []);
+
+  const closeModal = useCallback(() => {
+    if (window.history.state?.pocketqrModal) {
+      window.history.back();
+    } else {
+      setPresentationCard(null);
+      setRoutingCard(null);
+      setIsAddModalOpen(false);
+      setIsScanToPayOpen(false);
+      setEditingCard(null);
+    }
+  }, []);
+
+  const handleOpenPresentation = useCallback((card: QRCardItem) => {
+    openModal('presentation');
+    setPresentationCard(card);
+  }, [openModal]);
+
+  const handleOpenAdd = useCallback((cardToEdit: QRCardItem | null = null) => {
+    openModal('add');
+    setEditingCard(cardToEdit);
+    setIsAddModalOpen(true);
+  }, [openModal]);
+
+  const handleOpenScan = useCallback(() => {
+    openModal('scan');
+    setIsScanToPayOpen(true);
+  }, [openModal]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPresentationCard(null);
+      setRoutingCard(null);
+      setIsAddModalOpen(false);
+      setIsScanToPayOpen(false);
+      setEditingCard(null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Global paste handler to open Add modal on Ctrl+V anywhere
   useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
@@ -107,8 +153,7 @@ export function App() {
         if (e.clipboardData && e.clipboardData.files.length > 0) {
           const file = e.clipboardData.files[0];
           if (file.type.startsWith('image/')) {
-            setEditingCard(null);
-            setIsAddModalOpen(true);
+            handleOpenAdd(null);
           }
         }
       }
@@ -116,7 +161,7 @@ export function App() {
 
     window.addEventListener('paste', handleGlobalPaste);
     return () => window.removeEventListener('paste', handleGlobalPaste);
-  }, [isAddModalOpen, presentationCard, isScanToPayOpen]);
+  }, [isAddModalOpen, presentationCard, isScanToPayOpen, handleOpenAdd]);
 
   const handleUnlockVault = async () => {
     const verified = await authenticateWithBiometrics();
@@ -273,11 +318,8 @@ export function App() {
                     key={card.id}
                     card={card}
                     privacyMask={privacyMask}
-                    onPresent={(c) => setPresentationCard(c)}
-                    onEdit={(c) => {
-                      setEditingCard(c);
-                      setIsAddModalOpen(true);
-                    }}
+                    onPresent={handleOpenPresentation}
+                    onEdit={handleOpenAdd}
                     onDelete={handleDeleteCard}
                     onToggleFavorite={handleToggleFavorite}
                     onNotify={addToast}
@@ -302,7 +344,7 @@ export function App() {
 
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setIsScanToPayOpen(true)}
+                    onClick={handleOpenScan}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm font-bold shadow-lg active:translate-y-0.5 transition-all uppercase hover:bg-primary-fixed cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
@@ -310,10 +352,7 @@ export function App() {
                   </button>
 
                   <button
-                    onClick={() => {
-                      setEditingCard(null);
-                      setIsAddModalOpen(true);
-                    }}
+                    onClick={() => handleOpenAdd(null)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold border border-outline-variant/40 active:translate-y-0.5 transition-all uppercase hover:bg-surface-bright cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">add</span>
@@ -410,15 +449,16 @@ export function App() {
       <BottomNav
         currentTab={currentTab}
         onTabChange={(tab) => setCurrentTab(tab)}
-        onScanClick={() => setIsScanToPayOpen(true)}
+        onScanClick={handleOpenScan}
         onConfigClick={() => setCurrentTab('config')}
       />
 
       {/* Presentation Fullscreen Modal (Cashier Mode) */}
       <PresentationModal
         card={presentationCard}
-        onClose={() => setPresentationCard(null)}
+        onClose={closeModal}
         onPayWithBank={(c) => {
+          window.history.replaceState({ pocketqrModal: 'routing' }, '');
           setPresentationCard(null);
           setRoutingCard(c);
         }}
@@ -443,7 +483,7 @@ export function App() {
           }
           rawPayload={routingCard.rawPayload || ''}
           imageDataUrl={routingCard.imageDataUrl}
-          onClose={() => setRoutingCard(null)}
+          onClose={closeModal}
           onSaveToWallet={handleSaveCard}
           onNotify={addToast}
         />
@@ -452,7 +492,7 @@ export function App() {
       {/* Scan to Pay Live Camera Scanner */}
       <ScanToPayModal
         isOpen={isScanToPayOpen}
-        onClose={() => setIsScanToPayOpen(false)}
+        onClose={closeModal}
         onSaveToWallet={handleSaveCard}
         onNotify={addToast}
       />
@@ -462,10 +502,7 @@ export function App() {
         isOpen={isAddModalOpen}
         initialCard={editingCard}
         cardCount={cards.length}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setEditingCard(null);
-        }}
+        onClose={closeModal}
         onSave={handleSaveCard}
         onNotify={addToast}
       />
