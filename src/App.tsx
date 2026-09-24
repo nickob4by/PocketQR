@@ -30,7 +30,6 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [currentFilter, setCurrentFilter] = useState<FilterCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [privacyMask, setPrivacyMask] = useState(true);
   const [currentTab, setCurrentTab] = useState<NavTab>('vault');
 
@@ -285,13 +284,6 @@ export function App() {
           setEditingCard(null);
           setIsAddModalOpen(true);
         }}
-        onSettingsClick={() => setCurrentTab(currentTab === 'config' ? 'vault' : 'config')}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        privacyMask={privacyMask}
-        onTogglePrivacyMask={handleTogglePrivacyMask}
-        isSearchOpen={isSearchOpen}
-        onToggleSearch={() => setIsSearchOpen(!isSearchOpen)}
         cardCount={cards.length}
       />
 
@@ -299,11 +291,13 @@ export function App() {
       <main className="flex-1 max-w-md w-full mx-auto px-margin pt-3 pb-32 flex flex-col overflow-y-auto overscroll-y-contain touch-pan-y">
         {currentTab === 'vault' && (
           <>
-            {/* Category Pills Filter */}
+            {/* Search Bar & Category Filter Deck */}
             <CategoryFilter
               currentFilter={currentFilter}
               onFilterChange={setCurrentFilter}
               cards={cards}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
             />
 
             {/* Cartridge Stack Deck */}

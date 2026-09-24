@@ -17,12 +17,16 @@ interface CategoryFilterProps {
   currentFilter: FilterCategory;
   onFilterChange: (filter: FilterCategory) => void;
   cards: QRCardItem[];
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }
 
 export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   currentFilter,
   onFilterChange,
   cards,
+  searchQuery,
+  onSearchChange,
 }) => {
   const counts = React.useMemo(() => {
     return {
@@ -68,23 +72,32 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   }, [filterButtons, currentFilter, onFilterChange]);
 
   return (
-    <div className="flex flex-col gap-space-xs p-space-sm bg-surface-container-low rounded-xl shadow-sm border border-outline-variant/30 mb-space-md">
-      {/* Top Bank Slot Counter Strip */}
-      <div className="flex items-center justify-between font-label-sm text-label-sm">
-        <div className="flex items-center gap-space-xs">
-          <span className="inline-block w-2 h-2 rounded-full bg-primary-container shadow-[0_0_8px_rgba(0,240,160,0.8)] animate-pulse"></span>
-          <span className="text-primary-fixed uppercase tracking-wider font-bold text-[11px]">
-            BANK CHANNEL FILTER
-          </span>
-          <span className="text-outline text-[11px]">::</span>
-          <span className="text-on-surface text-[11px]">
-            {currentFilter.toUpperCase()} [{String(counts[currentFilter] ?? 0).padStart(2, '0')}]
-          </span>
-        </div>
+    <div className="flex flex-col gap-2 p-2.5 bg-surface-container-low rounded-xl shadow-sm border border-outline-variant/30 mb-3">
+      {/* Permanent Search Bar replacing "BANK CHANNEL FILTER" */}
+      <div className="relative w-full">
+        <span className="material-symbols-outlined text-[18px] absolute left-3 top-1/2 -translate-y-1/2 text-outline">
+          search
+        </span>
+        <input
+          type="text"
+          placeholder="Search payee or bank..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-lg pl-9 pr-8 py-2 text-xs font-label-md text-on-surface placeholder-outline focus:outline-none focus:border-primary-fixed transition-all"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => onSearchChange('')}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[14px] text-outline hover:text-on-surface p-0.5 flex items-center cursor-pointer"
+            aria-label="Clear search"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        )}
       </div>
 
       {/* Horizontally Scrollable Bank Channel Selectors */}
-      <div className="flex items-center gap-1.5 overflow-x-auto touch-pan-x flex-nowrap shrink-0 pt-1 pb-1 no-scrollbar scroll-smooth">
+      <div className="flex items-center gap-1.5 overflow-x-auto touch-pan-x flex-nowrap shrink-0 no-scrollbar scroll-smooth">
         {filterButtons.map((btn) => {
           const isActive = currentFilter === btn.id;
           return (
