@@ -20,8 +20,10 @@ import { BackupSettingsModal } from './components/BackupSettingsModal';
 import { InstallPrompt } from './components/InstallPrompt';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
-import { Plus, QrCode, Lock, KeyRound, ScanLine } from 'lucide-react';
+import { Lock, KeyRound } from 'lucide-react';
 import { authenticateWithBiometrics, triggerHaptic } from './lib/security';
+import { BottomNav } from './components/BottomNav';
+import type { NavTab } from './components/BottomNav';
 
 export function App() {
   const [cards, setCards] = useState<QRCardItem[]>([]);
@@ -30,6 +32,7 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [privacyMask, setPrivacyMask] = useState(true);
+  const [currentTab, setCurrentTab] = useState<NavTab>('vault');
 
   // Modals
   const [presentationCard, setPresentationCard] = useState<QRCardItem | null>(null);
@@ -218,7 +221,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-fintech-dark text-slate-100 flex flex-col font-sans pb-16">
+    <div className="min-h-screen min-h-[100dvh] bg-surface text-on-surface flex flex-col font-sans pb-24 select-none">
       {/* Top Header */}
       <Header
         onScanToPayClick={() => setIsScanToPayOpen(true)}
@@ -237,74 +240,164 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-12 flex flex-col safe-x">
-        {/* Category Pills Filter */}
-        <CategoryFilter
-          currentFilter={currentFilter}
-          onFilterChange={setCurrentFilter}
-          cards={cards}
-        />
+      <main className="flex-1 max-w-md w-full mx-auto px-margin pt-3 pb-8 flex flex-col">
+        {currentTab === 'vault' && (
+          <>
+            {/* Category Pills Filter */}
+            <CategoryFilter
+              currentFilter={currentFilter}
+              onFilterChange={setCurrentFilter}
+              cards={cards}
+            />
 
-        {/* Card Stack / Wallet Adaptive Grid (1 col on mobile, 2 cols on tablet, 3 cols on landscape desktop) */}
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center py-20 text-slate-500 text-sm">
-            Loading your local QR Ph vault...
+            {/* Cartridge Stack Deck */}
+            {loading ? (
+              <div className="flex-1 flex items-center justify-center py-20 text-outline text-xs font-mono">
+                [ LOADING BANK-EEPROM VAULT... ]
+              </div>
+            ) : filteredCards.length > 0 ? (
+              <div className="flex flex-col gap-space-sm">
+                {filteredCards.map((card) => (
+                  <QRCard
+                    key={card.id}
+                    card={card}
+                    privacyMask={privacyMask}
+                    onPresent={(c) => setPresentationCard(c)}
+                    onEdit={(c) => {
+                      setEditingCard(c);
+                      setIsAddModalOpen(true);
+                    }}
+                    onDelete={handleDeleteCard}
+                    onToggleFavorite={handleToggleFavorite}
+                    onNotify={addToast}
+                  />
+                ))}
+              </div>
+            ) : (
+              /* Empty Search / Category State */
+              <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 text-center font-mono">
+                <div className="w-14 h-14 rounded-2xl bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-primary-fixed mb-4 shadow-inner">
+                  <span className="material-symbols-outlined text-[28px]">qr_code_2</span>
+                </div>
+
+                <h3 className="font-headline-md text-headline-md text-on-surface font-bold">
+                  NO CARTRIDGES FOUND
+                </h3>
+                <p className="text-xs text-outline max-w-xs mt-1 mb-5 font-sans leading-relaxed">
+                  {searchQuery
+                    ? `No ROM matching "${searchQuery}". Try searching for another name or bank.`
+                    : 'No cartridges in this bank channel yet. Add your GCash, Maya, or bank QR.'}
+                </p>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsScanToPayOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm font-bold shadow-lg active:translate-y-0.5 transition-all uppercase hover:bg-primary-fixed cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
+                    <span>SCAN TO PAY</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setEditingCard(null);
+                      setIsAddModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold border border-outline-variant/40 active:translate-y-0.5 transition-all uppercase hover:bg-surface-bright cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    <span>ADD ROM</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {currentTab === 'logs' && (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center font-mono space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-primary-fixed">
+              <span className="material-symbols-outlined text-[28px]">receipt_long</span>
+            </div>
+            <h3 className="font-headline-md text-headline-md text-on-surface font-bold uppercase">
+              TRANSACTION LOGS // ARCHIVE
+            </h3>
+            <p className="text-xs text-outline max-w-xs font-sans leading-relaxed">
+              When you scan and dispatch QR Ph payments, transaction receipts are verified and stored locally on your device with offline cryptographic privacy.
+            </p>
+            <div className="pt-2">
+              <span className="font-label-sm text-label-sm text-primary-fixed bg-surface-container-high px-2 py-1 rounded border border-primary-fixed/30">
+                AUDIT SIGNATURE: SHA-256 SECURED
+              </span>
+            </div>
           </div>
-        ) : filteredCards.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 mt-4">
-            {filteredCards.map((card) => (
-              <QRCard
-                key={card.id}
-                card={card}
-                privacyMask={privacyMask}
-                onPresent={(c) => setPresentationCard(c)}
-                onEdit={(c) => {
-                  setEditingCard(c);
-                  setIsAddModalOpen(true);
-                }}
-                onDelete={handleDeleteCard}
-                onToggleFavorite={handleToggleFavorite}
-                onNotify={addToast}
-              />
-            ))}
-          </div>
-        ) : (
-          /* Empty Search / Category State */
-          <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-4 shadow-inner">
-              <QrCode className="w-7 h-7" />
+        )}
+
+        {currentTab === 'rails' && (
+          <div className="flex flex-col gap-space-sm font-mono mt-1">
+            <div className="bg-surface-container-low p-space-md rounded-xl border border-outline-variant/40">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-space-xs text-primary-fixed font-bold">
+                  <span className="material-symbols-outlined text-[18px]">verified</span>
+                  <span>QR PH NATIONAL RAILS</span>
+                </div>
+                <span className="font-label-sm text-label-sm text-secondary bg-surface-container px-1.5 py-0.5 rounded">
+                  BSP 1055
+                </span>
+              </div>
+              <p className="text-xs text-outline mt-2 font-sans leading-relaxed">
+                The Bangko Sentral ng Pilipinas (BSP) National Retail Payment System enables cross-app interoperability between e-wallets and commercial banks across the Philippines.
+              </p>
             </div>
 
-            <h3 className="text-base font-bold text-white">No QR Ph Cards Found</h3>
-            <p className="text-xs text-slate-400 max-w-sm mt-1 mb-5 leading-relaxed">
-              {searchQuery
-                ? `No cards matching "${searchQuery}". Try searching for another name or bank.`
-                : 'No cards in this category yet. Add your GCash, Maya, or bank QR Ph screenshot.'}
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsScanToPayOpen(true)}
-                className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm shadow-lg active:scale-95 transition-all"
-              >
-                <ScanLine className="w-4 h-4" />
-                <span>Scan to Pay Someone</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setEditingCard(null);
-                  setIsAddModalOpen(true);
-                }}
-                className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-semibold text-xs sm:text-sm border border-slate-700 active:scale-95 transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Card</span>
-              </button>
+            <div className="bg-surface-container-low p-space-md rounded-xl border border-outline-variant/40 space-y-2">
+              <span className="font-label-sm text-label-sm text-outline uppercase font-bold">
+                COMPLIANT INSTITUTIONS (INSTAPAY READY)
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                <div className="p-2 bg-surface-container rounded border border-outline-variant/20 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <span className="font-bold text-on-surface">GCash (Globe)</span>
+                </div>
+                <div className="p-2 bg-surface-container rounded border border-outline-variant/20 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="font-bold text-on-surface">Maya (PayMaya)</span>
+                </div>
+                <div className="p-2 bg-surface-container rounded border border-outline-variant/20 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-600"></span>
+                  <span className="font-bold text-on-surface">BPI Online</span>
+                </div>
+                <div className="p-2 bg-surface-container rounded border border-outline-variant/20 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                  <span className="font-bold text-on-surface">GoTyme Bank</span>
+                </div>
+                <div className="p-2 bg-surface-container rounded border border-outline-variant/20 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-700"></span>
+                  <span className="font-bold text-on-surface">RCBC Pulz</span>
+                </div>
+                <div className="p-2 bg-surface-container rounded border border-outline-variant/20 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                  <span className="font-bold text-on-surface">UnionBank</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </main>
+
+      {/* Tactile Cyberdeck Bottom Navigation Bar */}
+      <BottomNav
+        currentTab={currentTab}
+        onTabChange={(tab) => {
+          if (tab === 'config') {
+            setIsSettingsModalOpen(true);
+          } else {
+            setCurrentTab(tab);
+          }
+        }}
+        onScanClick={() => setIsScanToPayOpen(true)}
+        onConfigClick={() => setIsSettingsModalOpen(true)}
+      />
 
       {/* Presentation Fullscreen Modal (Cashier Mode) */}
       <PresentationModal

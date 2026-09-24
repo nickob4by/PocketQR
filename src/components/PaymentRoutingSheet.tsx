@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import {
-  X,
-  Copy,
-  Check,
-  ShieldCheck,
-  BookmarkPlus,
-  ExternalLink,
-  Sparkles,
-  Smartphone,
-} from 'lucide-react';
 import type { ParsedEMVCo } from '../lib/emvcoParser';
 import { formatAccountNumber } from '../lib/emvcoParser';
 import type { PayingBankApp } from '../types/payment';
@@ -18,14 +8,10 @@ import {
   launchBankingApp,
   getDefaultPayingBank,
   setDefaultPayingBank,
-  getDirectAppScheme,
-  getAppStoreUrl,
-  formatPaymentSummary,
 } from '../lib/deepLink';
 import {
   isNativeAndroid,
   getInstalledBankingApps,
-  openNativeSystemChooser,
 } from '../lib/nativeBanking';
 import { triggerHaptic } from '../lib/security';
 import type { QRCardItem } from '../types/qr';
@@ -50,37 +36,35 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
   const [selectedApp, setSelectedApp] = useState<PayingBankApp>(() => {
     const savedDefaultId = getDefaultPayingBank();
     const found = PAYING_BANK_APPS.find((a) => a.id === savedDefaultId);
-    return found || PAYING_BANK_APPS[0]; // Default to GCash or saved preferred
+    return found || PAYING_BANK_APPS[0];
   });
 
   const [copiedNumber, setCopiedNumber] = useState(true);
-  const [copiedAll, setCopiedAll] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [defaultBankId, setDefaultBankId] = useState<string | null>(() => getDefaultPayingBank());
-  const [showTroubleshoot, setShowTroubleshoot] = useState(false);
   const [installedAppIds, setInstalledAppIds] = useState<string[]>([]);
   const [showAllApps, setShowAllApps] = useState(false);
+  const [isDispatching, setIsDispatching] = useState(false);
 
   const isNative = isNativeAndroid();
-  const recipientName = parsed.merchantName || 'Scanned Payee';
-  const recipientNumber = parsed.accountNumber || 'Unknown Account';
+  const recipientName = parsed.merchantName || 'VERIFIED QRPH PAYEE';
+  const recipientNumber = parsed.accountNumber || '';
   const receivingBank = parsed.bankName || (parsed.isQRPh ? 'QR Ph Network' : 'Bank / E-Wallet');
 
   // Auto-copy account number to clipboard immediately when sheet mounts
   useEffect(() => {
-    if (parsed.accountNumber && typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(parsed.accountNumber).then(() => {
+    if (recipientNumber && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(recipientNumber).then(() => {
         setCopiedNumber(true);
       }).catch(() => {});
     }
-  }, [parsed.accountNumber]);
+  }, [recipientNumber]);
 
   // Query installed apps on native Android
   useEffect(() => {
     if (isNative) {
       getInstalledBankingApps().then((installed) => {
         setInstalledAppIds(installed);
-        // If the selected app is not installed, switch selection to the first installed one
         if (installed.length > 0 && !installed.includes(selectedApp.id)) {
           const firstInstalled = PAYING_BANK_APPS.find((a) => installed.includes(a.id));
           if (firstInstalled) {
@@ -91,7 +75,6 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
     }
   }, [isNative]);
 
-  // Displayed apps list: if native and not showing all, filter to installed only
   const displayedApps = React.useMemo(() => {
     if (isNative && !showAllApps && installedAppIds.length > 0) {
       return PAYING_BANK_APPS.filter((a) => installedAppIds.includes(a.id));
@@ -99,344 +82,353 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
     return PAYING_BANK_APPS;
   }, [isNative, showAllApps, installedAppIds]);
 
-  // Execute deep link launch
-  const executeLaunch = (appToLaunch: PayingBankApp, isAlways: boolean) => {
-    if (!parsed.accountNumber) {
-      onNotify('No Account Number', 'QR code payload does not contain an account number', 'error');
-      return;
-    }
-
-    if (isAlways) {
-      setDefaultPayingBank(appToLaunch.id);
-      setDefaultBankId(appToLaunch.id);
-      onNotify('Preference Saved', `${appToLaunch.name} set as default paying app`, 'info');
-    }
-
-    triggerHaptic('success');
-    try {
-      confetti({
-        particleCount: 35,
-        spread: 50,
-        origin: { y: 0.85 },
-      });
-    } catch {}
-
-    onNotify(
-      `Opening ${appToLaunch.name}...`,
-      `Copied ${parsed.accountNumber} to clipboard! Paste it into Send Money.`,
-      'success'
-    );
-
-    // Synchronous direct dispatch
-    launchBankingApp(appToLaunch, parsed.accountNumber);
-  };
-
-  const handleJustOnce = () => {
-    executeLaunch(selectedApp, false);
-  };
-
-  const handleAlways = () => {
-    executeLaunch(selectedApp, true);
-  };
-
-  const handleOpenSystemChooser = async () => {
-    if (parsed.accountNumber && typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(parsed.accountNumber);
-    }
-    const appsToPass = displayedApps.length > 0 ? displayedApps : PAYING_BANK_APPS;
-    openNativeSystemChooser(appsToPass);
-  };
-
-  const handleClearDefault = () => {
-    setDefaultPayingBank(null);
-    setDefaultBankId(null);
-    triggerHaptic('light');
-    onNotify('Default Cleared', 'You will be prompted to choose an app next time', 'info');
-  };
-
   const handleCopyNumber = () => {
-    if (!parsed.accountNumber) return;
-    navigator.clipboard.writeText(parsed.accountNumber);
-    setCopiedNumber(true);
-    triggerHaptic('success');
-    onNotify('Account Number Copied!', parsed.accountNumber, 'success');
-    setTimeout(() => setCopiedNumber(false), 2000);
+    if (recipientNumber) {
+      navigator.clipboard.writeText(recipientNumber);
+      setCopiedNumber(true);
+      triggerHaptic('success');
+      onNotify('Copied to Clipboard!', recipientNumber, 'success');
+      setTimeout(() => setCopiedNumber(false), 2000);
+    }
   };
 
-  const handleCopyAll = () => {
-    const text = formatPaymentSummary(
-      recipientName,
-      recipientNumber,
-      receivingBank,
-      parsed.amount
-    );
-    navigator.clipboard.writeText(text);
-    setCopiedAll(true);
-    triggerHaptic('success');
-    onNotify('All Payment Info Copied!', 'Ready to paste in your banking app', 'success');
-    setTimeout(() => setCopiedAll(false), 2000);
-  };
+  const handleSaveToWallet = () => {
+    if (hasSaved) return;
 
-  const handleSaveCard = () => {
     const newCard: QRCardItem = {
-      id: `payee-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: `card_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       bank: parsed.detectedBank || 'other',
-      bankCustomName: !parsed.detectedBank ? receivingBank : undefined,
+      bankCustomName: receivingBank,
       accountName: recipientName,
-      accountNumber: parsed.accountNumber || '',
-      category: 'business',
-      notes: parsed.amount ? `Preset Bill: ₱${parsed.amount}` : 'Saved from Scan to Pay',
+      accountNumber: recipientNumber,
+      category: 'personal',
       rawPayload,
       imageDataUrl: imageDataUrl || '',
-      isFavorite: false,
-      orderIndex: Date.now(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      orderIndex: 0,
+      isFavorite: false,
     };
 
     onSaveToWallet(newCard);
     setHasSaved(true);
     triggerHaptic('success');
-    onNotify('Saved to PocketQR!', `${recipientName} added to your wallet cards`, 'success');
+    try {
+      confetti({ particleCount: 35, spread: 60, origin: { y: 0.85 } });
+    } catch {}
+    onNotify('Saved to ROM Vault!', `${recipientName} is now in your wallet`, 'success');
+  };
+
+  const handleToggleDefault = () => {
+    const isCurrentlyDefault = defaultBankId === selectedApp.id;
+    const nextDefault = isCurrentlyDefault ? null : selectedApp.id;
+    setDefaultPayingBank(nextDefault);
+    setDefaultBankId(nextDefault);
+    triggerHaptic('light');
+    onNotify(
+      nextDefault ? 'Default Cartridge Set' : 'Default Cleared',
+      nextDefault ? `${selectedApp.name} will be prioritized` : 'You will be prompted each time',
+      'info'
+    );
+  };
+
+  const handleLaunchPayment = () => {
+    setIsDispatching(true);
+    triggerHaptic('light');
+
+    // 1. Copy number
+    if (recipientNumber) {
+      navigator.clipboard.writeText(recipientNumber).catch(() => {});
+    }
+
+    // 2. Launch
+    setTimeout(() => {
+      launchBankingApp(selectedApp, recipientNumber);
+      onNotify(
+        `Launching ${selectedApp.name}...`,
+        recipientNumber ? `Number copied: ${recipientNumber}` : undefined,
+        'success'
+      );
+      setTimeout(() => setIsDispatching(false), 2000);
+    }, 400);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 safe-p">
-      {/* Native Android "Open with" Bottom Sheet */}
-      <div className="relative w-full max-w-lg bg-[#1e232d] border border-slate-700/60 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] animate-in slide-in-from-bottom duration-300">
-        
-        {/* Android Material Pull Handle */}
-        <div className="w-full flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1.5 rounded-full bg-slate-500/60" />
-        </div>
-
-        {/* Android Header Bar */}
-        <div className="flex items-center justify-between px-6 pt-2 pb-3 shrink-0">
-          <div>
-            <h2 className="text-xl font-semibold text-white tracking-tight flex items-center gap-2">
-              <span>Open with</span>
-              <span className="text-[11px] font-normal text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                Number copied
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
+      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-between py-2 sm:py-4 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
+        {/* Header */}
+        <header className="sticky top-0 w-full z-10 pt-safe bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30 pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-space-sm">
+              <button
+                onClick={onClose}
+                aria-label="Return"
+                className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface active:translate-y-0.5 transition-transform border border-outline-variant/40"
+              >
+                <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+              </button>
+              <h1 className="font-headline-md text-headline-md tracking-tight text-on-surface uppercase truncate font-bold">
+                Payment Dispatch
+              </h1>
+            </div>
+            <button
+              onClick={handleSaveToWallet}
+              disabled={hasSaved}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-label-sm text-label-sm font-bold uppercase transition-all ${
+                hasSaved
+                  ? 'bg-primary-container/20 border-primary-fixed text-primary-fixed'
+                  : 'bg-surface-container-high border-outline-variant/60 text-tertiary hover:bg-surface-bright active:translate-y-0.5'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                {hasSaved ? 'bookmark_added' : 'bookmark_add'}
               </span>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Choose an app to pay <span className="font-semibold text-slate-200">{recipientName}</span>
+              <span>{hasSaved ? 'SAVED' : 'SAVE ROM'}</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Main Content Scrollable Area */}
+        <div className="flex flex-col w-full py-3 space-y-space-sm select-none">
+          {/* Status HUD Tape */}
+          <div className="flex items-center justify-between font-mono font-label-sm text-label-sm">
+            <div className="flex items-center gap-space-xs">
+              <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+              <span className="text-primary tracking-wider uppercase font-bold">
+                DECODER ACTIVE // QRPH 2.4
+              </span>
+            </div>
+            <div className="flex items-center gap-space-xs bg-surface-container-high px-space-sm py-0.5 rounded border border-outline-variant/30">
+              <span className="text-on-surface-variant uppercase tracking-wider">ROUTING</span>
+              <span className="text-primary-fixed font-bold">READY</span>
+            </div>
+          </div>
+
+          {/* Transaction Summary Inset LCD Terminal */}
+          <section className="bg-surface-container-lowest p-space-md rounded-xl shadow-2xl relative overflow-hidden border border-outline-variant/40 font-mono">
+            {/* Ambient dot-matrix raster overlay */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#00f0a0_1px,transparent_1px)] [background-size:8px_8px]"></div>
+
+            <div className="relative z-10 flex flex-col gap-space-sm">
+              {/* Receipt Header */}
+              <div className="flex items-center justify-between text-label-sm">
+                <div className="flex items-center gap-space-xs">
+                  <span className="material-symbols-outlined text-primary text-[18px]">
+                    receipt_long
+                  </span>
+                  <span className="text-primary uppercase tracking-widest font-bold">
+                    TRANSACTION RECEIPT
+                  </span>
+                </div>
+                <span className="text-outline uppercase tracking-wider">QRPH // INSTAPAY</span>
+              </div>
+
+              {/* Merchant / Payee & Number Box */}
+              <div className="bg-surface-container-low p-space-sm rounded-lg flex flex-col gap-1 border border-outline-variant/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-label-sm text-outline uppercase">VERIFIED RECIPIENT</span>
+                  <span className="text-label-sm text-secondary font-bold tracking-wide">
+                    {receivingBank}
+                  </span>
+                </div>
+                <div className="font-headline-md text-headline-md text-on-surface tracking-tight truncate font-bold">
+                  {recipientName}
+                </div>
+
+                {recipientNumber && (
+                  <div className="flex items-center justify-between mt-1 pt-1 border-t border-outline-variant/30">
+                    <span className="text-label-sm text-outline uppercase font-mono">
+                      ACCT: {formatAccountNumber(recipientNumber, false)}
+                    </span>
+                    <button
+                      onClick={handleCopyNumber}
+                      className="flex items-center gap-1 text-[11px] text-primary hover:text-primary-fixed font-bold font-mono bg-surface-container-high px-2 py-0.5 rounded cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">
+                        {copiedNumber ? 'check' : 'content_copy'}
+                      </span>
+                      <span>{copiedNumber ? 'COPIED' : 'COPY'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Amount if specified in QR */}
+              {parsed.amount && (
+                <div className="flex items-center justify-between bg-surface-container-high px-space-sm py-1 rounded-lg">
+                  <span className="text-label-sm text-outline uppercase">PAYMENT AMOUNT:</span>
+                  <span className="font-headline-md text-headline-md text-primary-fixed font-bold">
+                    ₱{parsed.amount}
+                  </span>
+                </div>
+              )}
+
+              {/* Meta Telemetry */}
+              <div className="grid grid-cols-2 gap-space-xs text-[10px]">
+                <div className="bg-surface-container p-space-xs rounded flex flex-col">
+                  <span className="text-outline uppercase">NETWORK PROTOCOL</span>
+                  <span className="text-on-surface truncate font-bold">QRPH STANDARD P2M</span>
+                </div>
+                <div className="bg-surface-container p-space-xs rounded flex flex-col">
+                  <span className="text-outline uppercase">SWITCHING FEE</span>
+                  <span className="text-primary-fixed truncate font-bold">₱ 0.00 (FREE)</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Quick Notice: How Philippine Banks Process Deep Links */}
+          <div className="bg-surface-container-low p-space-sm rounded-lg border border-outline-variant/30 flex items-start gap-2 text-xs">
+            <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">
+              info
+            </span>
+            <p className="text-on-surface-variant font-mono text-[11px] leading-relaxed">
+              <strong className="text-on-surface">Auto-Copied:</strong> {recipientNumber} is in your clipboard. Once your banking app opens and you log in, tap{' '}
+              <span className="text-primary-fixed font-bold">Send &gt; Express Send</span> and paste!
             </p>
           </div>
 
-          <button
-            onClick={onClose}
-            className="min-h-[40px] min-w-[40px] p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Scanned Payee Summary Card */}
-        <div className="mx-6 p-3 rounded-2xl bg-slate-900/90 border border-slate-750 flex items-center justify-between gap-3 shrink-0">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold mb-0.5">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{receivingBank}</span>
-              {parsed.amount && <span className="text-amber-300 ml-1">• ₱{parsed.amount}</span>}
+          {/* Section Header */}
+          <div className="flex items-center justify-between px-0.5 pt-1">
+            <div className="flex items-center gap-space-xs">
+              <span className="material-symbols-outlined text-secondary text-[16px]">
+                swap_horiz
+              </span>
+              <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight uppercase font-bold text-sm">
+                CHOOSE PAYMENT CARTRIDGE
+              </h2>
             </div>
-            <div className="font-mono text-sm font-bold text-white tracking-wider truncate">
-              {formatAccountNumber(recipientNumber, false)}
+            <div className="flex items-center gap-1.5 font-mono text-label-sm">
+              <span className="text-on-surface-variant font-bold">
+                {displayedApps.length} APPS
+              </span>
+              {isNative && (
+                <button
+                  onClick={() => setShowAllApps(!showAllApps)}
+                  className="text-primary hover:underline"
+                >
+                  {showAllApps ? '[INSTALLED ONLY]' : '[SHOW ALL]'}
+                </button>
+              )}
             </div>
           </div>
 
-          <button
-            onClick={handleCopyNumber}
-            className="min-h-[36px] px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-1.5 shrink-0 transition-colors"
-          >
-            {copiedNumber ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className={copiedNumber ? 'text-emerald-400' : ''}>
-              {copiedNumber ? 'Copied' : 'Copy'}
-            </span>
-          </button>
-        </div>
-
-        {/* Default App Active Notice (if user chose "ALWAYS" previously) */}
-        {defaultBankId && (
-          <div className="mx-6 mt-3 px-3 py-2 rounded-xl bg-blue-950/40 border border-blue-800/40 flex items-center justify-between text-xs text-blue-200 shrink-0">
-            <span>
-              Default: <strong className="text-white">{PAYING_BANK_APPS.find((a) => a.id === defaultBankId)?.name || 'App'}</strong> is set to always open.
-            </span>
-            <button
-              onClick={handleClearDefault}
-              className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline ml-2 shrink-0"
-            >
-              Reset
-            </button>
-          </div>
-        )}
-
-        {/* Native Installed Apps Header Indicator */}
-        {isNative && (
-          <div className="mx-6 mt-3 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="flex items-center gap-1 text-emerald-400">
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>{installedAppIds.length} installed apps detected</span>
-            </span>
-            <button
-              onClick={() => setShowAllApps(!showAllApps)}
-              className="text-blue-400 hover:underline"
-            >
-              {showAllApps ? 'Show installed only' : 'Show all banks'}
-            </button>
-          </div>
-        )}
-
-        {/* Android Native Apps Grid */}
-        <div className="flex-1 overflow-y-auto touch-scroll px-6 py-4">
-          <div className="grid grid-cols-4 gap-y-4 gap-x-2">
+          {/* Cartridge Stack List */}
+          <div className="flex flex-col gap-space-xs font-mono" role="radiogroup">
             {displayedApps.map((app) => {
               const isSelected = selectedApp.id === app.id;
-              const isDefault = defaultBankId === app.id;
-              const isInstalled = !isNative || installedAppIds.includes(app.id);
+              const isInstalled = isNative && installedAppIds.includes(app.id);
 
               return (
-                <button
+                <div
                   key={app.id}
                   onClick={() => {
                     setSelectedApp(app);
                     triggerHaptic('light');
                   }}
-                  onDoubleClick={() => executeLaunch(app, false)}
-                  className={`flex flex-col items-center text-center p-2 rounded-2xl transition-all relative group active:scale-95 ${
+                  className={`cartridge-item cursor-pointer p-space-sm rounded-xl transition-all duration-150 active:translate-y-0.5 relative border ${
                     isSelected
-                      ? 'bg-blue-600/15 ring-2 ring-blue-500 shadow-md'
-                      : 'hover:bg-slate-800/50'
+                      ? 'bg-surface-container-high border-primary-fixed shadow-md'
+                      : 'bg-surface-container border-outline-variant/30 hover:border-outline-variant/60'
                   }`}
+                  role="radio"
+                  aria-checked={isSelected}
                 >
-                  {/* Circular Android App Icon */}
-                  <div
-                    className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${app.gradient} flex items-center justify-center shadow-lg border border-white/10 text-white font-extrabold text-base tracking-wider mb-2 relative transition-transform ${
-                      isSelected ? 'scale-105' : ''
-                    }`}
-                  >
-                    <span className="drop-shadow-md">
-                      {app.shortName.slice(0, 2).toUpperCase()}
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-space-sm">
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center shadow-inner"
+                        style={{ backgroundColor: app.accentColor + '20', color: app.accentColor }}
+                      >
+                        <span className="material-symbols-outlined text-[20px]">
+                          account_balance_wallet
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-space-xs">
+                          <span className="font-headline-md text-headline-md text-on-surface font-bold text-sm leading-none">
+                            {app.name.toUpperCase()}
+                          </span>
+                          {isInstalled && (
+                            <span className="bg-primary-container text-on-primary-container px-1 py-0.2 rounded font-label-sm text-[9px] uppercase font-bold">
+                              INSTALLED
+                            </span>
+                          )}
+                          {defaultBankId === app.id && (
+                            <span className="bg-secondary text-on-secondary px-1 py-0.2 rounded font-label-sm text-[9px] uppercase font-bold">
+                              DEFAULT
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-label-sm text-[10px] text-tertiary-fixed font-bold tracking-wide mt-0.5">
+                          {isInstalled ? 'FAST DISPATCH READY' : 'TAP TO LAUNCH'}
+                        </span>
+                      </div>
+                    </div>
 
-                    {/* Installed Dot */}
-                    {isNative && isInstalled && (
-                      <span className="absolute bottom-1 right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#1e232d]" />
-                    )}
-
-                    {/* Default Star Badge */}
-                    {isDefault && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 text-slate-950 rounded-full text-[9px] flex items-center justify-center font-bold shadow">
-                        ★
-                      </span>
-                    )}
+                    <div
+                      className={`cartridge-indicator w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'bg-primary-container text-on-primary'
+                          : 'bg-surface-container-high'
+                      }`}
+                    >
+                      {isSelected ? (
+                        <span className="material-symbols-outlined text-[16px] font-bold">
+                          check
+                        </span>
+                      ) : (
+                        <span className="w-2 h-2 rounded-full bg-outline"></span>
+                      )}
+                    </div>
                   </div>
-
-                  {/* App Name Label */}
-                  <span
-                    className={`text-[11px] font-medium leading-tight line-clamp-1 ${
-                      isSelected ? 'text-blue-300 font-bold' : 'text-slate-300'
-                    }`}
-                  >
-                    {app.shortName}
-                  </span>
-                </button>
+                </div>
               );
             })}
           </div>
 
-          {/* Fallback / Troubleshooting Options */}
-          <div className="mt-4 pt-3 border-t border-slate-800/60 flex flex-col items-center gap-1.5 text-center">
-            {isNative ? (
-              <button
-                onClick={handleOpenSystemChooser}
-                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1.5 font-medium py-1 px-3 rounded-lg bg-blue-950/30 border border-blue-800/30"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Open in Android System Chooser</span>
-              </button>
+          {/* Set as Default Preference Toggle */}
+          <div className="flex items-center justify-between px-1 py-1 font-mono text-label-sm">
+            <button
+              onClick={handleToggleDefault}
+              className="flex items-center gap-1.5 text-secondary hover:text-secondary-fixed transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                {defaultBankId === selectedApp.id ? 'check_box' : 'check_box_outline_blank'}
+              </span>
+              <span>ALWAYS USE {selectedApp.name.toUpperCase()}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Action Deck (Thumb Zone) */}
+        <div className="flex flex-col gap-space-xs pt-2 pb-safe border-t border-outline-variant/30">
+          <button
+            onClick={handleLaunchPayment}
+            disabled={isDispatching}
+            className="w-full bg-primary-container text-on-primary font-headline-md text-headline-md font-bold py-3.5 px-space-md rounded-xl shadow-lg flex items-center justify-center gap-space-sm transition-all duration-100 active:translate-y-1 active:shadow-none uppercase cursor-pointer text-sm font-mono tracking-wider hover:bg-primary-fixed"
+          >
+            {isDispatching ? (
+              <>
+                <span className="material-symbols-outlined text-[20px] animate-spin">refresh</span>
+                <span>DISPATCHING INTENT...</span>
+              </>
             ) : (
-              <button
-                onClick={() => setShowTroubleshoot(!showTroubleshoot)}
-                className="text-[11px] text-slate-400 hover:text-slate-200 underline transition-colors"
-              >
-                {showTroubleshoot ? 'Hide troubleshooting' : `Trouble opening ${selectedApp.shortName}?`}
-              </button>
+              <>
+                <span className="material-symbols-outlined text-[20px]">bolt</span>
+                <span>LAUNCH {selectedApp.name.toUpperCase()} &amp; COMPLETE PAYMENT</span>
+              </>
             )}
+          </button>
 
-            {showTroubleshoot && !isNative && (
-              <div className="mt-2 p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-2 w-full max-w-sm">
-                <p className="text-[11px] text-slate-300 leading-normal">
-                  If your phone didn't open {selectedApp.shortName}, you can install it or open the store:
-                </p>
-                
-                <a
-                  href={getAppStoreUrl(selectedApp)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-1.5 px-3 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 font-medium text-xs flex items-center justify-center gap-1.5 border border-blue-500/30"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open in Google Play Store</span>
-                </a>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={onClose}
+            className="w-full bg-surface-container-high text-on-surface font-headline-md text-headline-md font-bold py-2.5 px-space-lg rounded-xl shadow-md transition-all duration-100 active:translate-y-0.5 uppercase tracking-wide flex items-center justify-center gap-space-xs text-xs font-mono"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+            <span>CANCEL TRANSACTION</span>
+          </button>
         </div>
-
-        {/* Android "Open with" Bottom Action Controls */}
-        <div className="p-5 border-t border-slate-800 bg-[#171b23] flex flex-col gap-3 shrink-0 safe-bottom">
-          {/* Native "JUST ONCE" and "ALWAYS" Buttons */}
-          <div className="flex items-center gap-3">
-            {/* JUST ONCE */}
-            <a
-              href={isNative ? '#' : getDirectAppScheme(selectedApp)}
-              onClick={(e) => {
-                if (isNative) e.preventDefault();
-                handleJustOnce();
-              }}
-              className="min-h-[46px] flex-1 px-4 py-2.5 rounded-full border border-slate-600 hover:border-slate-500 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider active:scale-95 transition-all text-center flex items-center justify-center select-none"
-            >
-              Just once
-            </a>
-
-            {/* ALWAYS */}
-            <a
-              href={isNative ? '#' : getDirectAppScheme(selectedApp)}
-              onClick={(e) => {
-                if (isNative) e.preventDefault();
-                handleAlways();
-              }}
-              className="min-h-[46px] flex-1 px-4 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-900/30 active:scale-95 transition-all text-center flex items-center justify-center select-none"
-            >
-              Always
-            </a>
-          </div>
-
-          {/* Secondary Quick Utilities */}
-          <div className="flex items-center justify-between text-xs pt-1 px-1 text-slate-400">
-            <button
-              onClick={handleSaveCard}
-              disabled={hasSaved}
-              className={`hover:text-slate-200 flex items-center gap-1.5 transition-colors ${
-                hasSaved ? 'text-emerald-400 font-semibold' : ''
-              }`}
-            >
-              <BookmarkPlus className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{hasSaved ? 'Saved to Wallet' : 'Save Payee'}</span>
-            </button>
-
-            <button
-              onClick={handleCopyAll}
-              className="hover:text-slate-200 flex items-center gap-1.5 transition-colors"
-            >
-              {copiedAll ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedAll ? 'Details Copied' : 'Copy All Info'}</span>
-            </button>
-          </div>
-        </div>
-
       </div>
     </div>
   );

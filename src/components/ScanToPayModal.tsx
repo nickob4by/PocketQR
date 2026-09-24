@@ -1,16 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import jsQR from 'jsqr';
-import {
-  X,
-  Flashlight,
-  FlashlightOff,
-  SwitchCamera,
-  Image,
-  AlertCircle,
-  Loader2,
-  ScanLine,
-  RefreshCw,
-} from 'lucide-react';
 import type { ParsedEMVCo } from '../lib/emvcoParser';
 import { parseQRPhPayload } from '../lib/emvcoParser';
 import { decodeQRCode, fileToDataUrl } from '../lib/qrDecoder';
@@ -342,8 +331,8 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/95 backdrop-blur-2xl animate-in fade-in duration-200 safe-p">
-      <div className="relative w-full h-full max-w-lg md:max-w-xl bg-slate-900 border border-slate-800 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
+      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-between py-2 sm:py-4 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
         {/* Hidden Canvas for QR frame analysis */}
         <canvas ref={canvasRef} className="hidden" />
 
@@ -356,142 +345,247 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
           className="hidden"
         />
 
-        {/* Top Control Bar */}
-        <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent safe-top">
-          <div className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${isCameraReady ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
-            <h3 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-1.5">
-              <ScanLine className="w-4 h-4 text-emerald-400" />
-              Scan to Pay
-            </h3>
+        {/* Top Header Bar */}
+        <div className="flex flex-col gap-space-xs pb-2 border-b border-outline-variant/30 pt-safe">
+          <div className="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+            <div className="flex items-center gap-space-sm font-mono">
+              <span className="px-space-xs py-0.5 rounded-DEFAULT bg-surface-container-high text-primary-fixed">
+                ROM: 82%
+              </span>
+              <span className="text-outline">|</span>
+              <span className="text-tertiary tracking-widest">BAT [||||]</span>
+            </div>
+            <div className="flex items-center gap-space-xs text-primary font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+              <span>LIVE-LINK</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Flashlight / Torch button */}
-            {torchSupported && (
+          <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center gap-space-sm">
               <button
-                onClick={toggleTorch}
-                title={torchOn ? 'Turn Flashlight Off' : 'Turn Flashlight On'}
-                className={`min-h-[44px] min-w-[44px] p-2.5 rounded-full backdrop-blur-md border transition-all flex items-center justify-center ${
-                  torchOn
-                    ? 'bg-amber-500 text-slate-950 border-amber-300'
-                    : 'bg-black/50 text-white border-white/20 hover:bg-black/70'
-                }`}
+                onClick={onClose}
+                aria-label="Close Viewfinder"
+                className="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-on-surface active:translate-y-0.5 transition-transform"
               >
-                {torchOn ? <Flashlight className="w-5 h-5" /> : <FlashlightOff className="w-5 h-5" />}
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               </button>
-            )}
-
-            {/* Switch Camera */}
-            <button
-              onClick={switchCamera}
-              title="Switch Front/Back Camera"
-              className="min-h-[44px] min-w-[44px] p-2.5 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md border border-white/20 transition-all flex items-center justify-center"
-            >
-              <SwitchCamera className="w-5 h-5" />
-            </button>
-
-            {/* Close */}
-            <button
-              onClick={onClose}
-              className="min-h-[44px] min-w-[44px] p-2.5 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md border border-white/20 transition-all flex items-center justify-center"
-              aria-label="Close scanner"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Viewfinder View */}
-        <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
-          {cameraError ? (
-            <div className="p-6 text-center max-w-sm flex flex-col items-center">
-              <AlertCircle className="w-12 h-12 text-amber-400 mb-3" />
-              <h4 className="text-base font-bold text-white mb-2">Camera Unavailable</h4>
-              <p className="text-xs text-slate-300 mb-6 leading-relaxed">{cameraError}</p>
-
-              <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <button
-                  onClick={startCamera}
-                  className="min-h-[44px] flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs active:scale-95 transition-all"
-                >
-                  <RefreshCw className="w-4 h-4 text-emerald-400" />
-                  <span>Try Again</span>
-                </button>
-
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="min-h-[44px] flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg active:scale-95 transition-all"
-                >
-                  <Image className="w-4 h-4" />
-                  <span>Upload Photo</span>
-                </button>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-space-xs">
+                  <span className="font-headline-md text-headline-md tracking-tight text-primary-fixed uppercase font-bold">
+                    POCKET•QR
+                  </span>
+                  <span className="font-label-sm text-label-sm text-outline px-1 rounded-DEFAULT bg-surface-container-low font-mono">
+                    v1.0
+                  </span>
+                </div>
+                <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
+                  Cyber Viewfinder
+                </span>
               </div>
             </div>
-          ) : (
-            <>
-              {/* Loading camera placeholder */}
-              {!isCameraReady && (
-                <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3 z-10">
-                  <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-                  <span className="text-xs font-medium">Starting camera...</span>
-                </div>
-              )}
 
-              {/* HTML5 Live Video Stream */}
-              <video
-                ref={videoRef}
-                playsInline
-                autoPlay
-                muted
-                className="w-full h-full object-cover"
-              />
-
-              {/* Scanning Reticle Frame */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
-                <div className="relative w-64 h-64 sm:w-72 sm:h-72 border-2 border-emerald-400/40 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]">
-                  {/* Glowing Corner Accents */}
-                  <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-xl" />
-                  <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-xl" />
-                  <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-xl" />
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-xl" />
-
-                  {/* Animated Scanning Laser Line */}
-                  <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#34d399] animate-pulse-subtle top-1/2 -translate-y-1/2" />
-                </div>
-              </div>
-
-              {/* Loading Indicator when parsing */}
-              {isProcessing && (
-                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white gap-2 z-20">
-                  <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-                  <span className="text-xs font-semibold">Decoding QR Ph Payload...</span>
-                </div>
-              )}
-            </>
-          )}
+            <button
+              onClick={onClose}
+              className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container-high"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
         </div>
 
-        {/* Bottom Actions Bar */}
-        <div className="p-4 sm:p-5 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between gap-3 safe-bottom shrink-0">
-          <div className="min-w-0">
-            <span className="text-xs font-bold text-slate-200 block">
-              Align QR Ph code inside the frame
-            </span>
-            <span className="text-[11px] text-slate-400 truncate block">
-              Scans GCash, Maya, RCBC, BPI & any QR Ph standee
-            </span>
+        {/* Viewfinder Main Column */}
+        <div className="flex flex-col w-full gap-space-sm my-auto py-2">
+          {/* Top Hardware Telemetry Status Strip */}
+          <div className="flex items-center justify-between px-space-xs py-1 rounded-DEFAULT bg-surface-container-lowest text-on-surface-variant font-label-sm text-label-sm font-mono border border-outline-variant/20">
+            <div className="flex items-center gap-space-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
+              <span className="text-primary-fixed uppercase tracking-wider">
+                OPTIC_SENS: {facingMode === 'environment' ? 'REAR_4K' : 'FRONT_HD'}
+              </span>
+            </div>
+            <div className="flex items-center gap-space-sm text-outline">
+              <span>LAT: 14.55° N</span>
+              <span>|</span>
+              <span className="text-primary-fixed">HUD: 60FPS</span>
+            </div>
           </div>
 
+          {/* Camera Controls Ribbon */}
+          <div className="grid grid-cols-3 gap-space-xs font-mono">
+            {/* Flash / Torch */}
+            <button
+              onClick={toggleTorch}
+              disabled={!torchSupported}
+              className={`flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 ${
+                !torchSupported ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+              } ${torchOn ? 'bg-secondary-fixed text-on-secondary-fixed' : 'text-on-surface'}`}
+            >
+              <span className="material-symbols-outlined text-[16px] text-secondary-fixed">
+                bolt
+              </span>
+              <span className="font-label-sm text-label-sm tracking-widest text-secondary-fixed font-bold">
+                FLASH: {torchOn ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            {/* Gallery Upload */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high text-on-surface hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px] text-tertiary">
+                photo_library
+              </span>
+              <span className="font-label-sm text-label-sm tracking-widest text-tertiary uppercase font-bold">
+                GALLERY
+              </span>
+            </button>
+
+            {/* Flip Lens */}
+            <button
+              onClick={switchCamera}
+              className="flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high text-on-surface hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px] text-primary-fixed">
+                flip_camera_android
+              </span>
+              <span className="font-label-sm text-label-sm tracking-widest text-primary-fixed uppercase font-bold">
+                {facingMode === 'environment' ? 'LENS: S1' : 'LENS: SELF'}
+              </span>
+            </button>
+          </div>
+
+          {/* Cyber Viewfinder Hardware Chassis */}
+          <div className="relative w-full aspect-[4/5] rounded-xl bg-surface-container-lowest overflow-hidden shadow-[inset_0_4px_16px_rgba(0,0,0,0.85)] border border-outline-variant/40 flex flex-col justify-between p-space-sm">
+            {/* Live Camera Stream */}
+            <video
+              ref={videoRef}
+              playsInline
+              autoPlay
+              muted
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+
+            {/* Camera Loading or Error State */}
+            {cameraError ? (
+              <div className="absolute inset-0 bg-surface/90 flex flex-col items-center justify-center p-6 text-center z-20">
+                <span className="material-symbols-outlined text-4xl text-secondary mb-2">
+                  warning
+                </span>
+                <span className="font-label-md text-label-md text-on-surface font-bold">
+                  OPTIC SENSOR OFFLINE
+                </span>
+                <p className="font-body-sm text-body-sm text-outline mt-1 mb-4 leading-relaxed">
+                  {cameraError}
+                </p>
+                <div className="flex gap-2 w-full">
+                  <button
+                    onClick={startCamera}
+                    className="flex-1 py-2 bg-surface-container-high text-primary-fixed font-label-sm text-label-sm rounded-lg"
+                  >
+                    RETRY SENSOR
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 py-2 bg-primary text-on-primary font-label-sm text-label-sm rounded-lg font-bold"
+                  >
+                    UPLOAD FILE
+                  </button>
+                </div>
+              </div>
+            ) : !isCameraReady ? (
+              <div className="absolute inset-0 bg-surface-container-lowest flex flex-col items-center justify-center gap-2 z-10 font-mono">
+                <span className="material-symbols-outlined text-2xl text-primary animate-spin">
+                  refresh
+                </span>
+                <span className="font-label-sm text-label-sm text-primary tracking-widest">
+                  CALIBRATING SENSOR...
+                </span>
+              </div>
+            ) : null}
+
+            {/* CRT Scanline & Dot-Matrix Grid Overlay */}
+            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(0,240,160,0.06)_0%,rgba(16,19,26,0.85)_100%)]"></div>
+            <div className="absolute inset-0 pointer-events-none opacity-25 bg-[linear-gradient(rgba(18,19,22,0)_50%,rgba(0,0,0,0.8)_50%)] bg-[length:100%_4px]"></div>
+
+            {/* Animated Laser Scanning Line */}
+            <div className="absolute inset-x-0 h-0.5 bg-tertiary-fixed shadow-[0_0_12px_#47d6ff,0_0_24px_#00e296] pointer-events-none animate-pulse opacity-90 top-1/2 -translate-y-1/2"></div>
+
+            {/* Top Viewport Telemetry HUD */}
+            <div className="relative z-10 flex items-center justify-between w-full font-label-sm text-label-sm text-tertiary-fixed-dim bg-surface-container-lowest/80 backdrop-blur-md px-space-xs py-1 rounded-DEFAULT font-mono border border-outline-variant/30">
+              <div className="flex items-center gap-space-xs">
+                <span className="text-tertiary-fixed tracking-widest">ISO 400</span>
+                <span className="text-outline">::</span>
+                <span className="text-tertiary-fixed tracking-widest">F/1.8</span>
+              </div>
+              <div className="flex items-center gap-space-xs text-primary-fixed">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
+                <span className="tracking-widest">
+                  {isProcessing ? 'DECODING...' : 'ACQUISITION: LOCK'}
+                </span>
+              </div>
+            </div>
+
+            {/* Center QR Target Reticle */}
+            <div className="relative z-10 self-center my-auto w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center pointer-events-none">
+              {/* Neon Cyan Corner Crosshairs */}
+              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-tertiary-container"></div>
+              <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-tertiary-container"></div>
+              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-tertiary-container"></div>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-tertiary-container"></div>
+
+              {/* Pulsing Lock Box */}
+              <div className="w-full h-full rounded-DEFAULT shadow-[0_0_18px_rgba(0,240,160,0.3)] bg-primary-container/10 flex flex-col items-center justify-between p-space-xs animate-pulse font-mono">
+                {/* Floating Corner Metric Tags */}
+                <div className="w-full flex justify-between font-label-sm text-label-sm text-primary-fixed">
+                  <span>[POS:X-294]</span>
+                  <span>[POS:Y-802]</span>
+                </div>
+                {/* Center Crosshair Target Marker */}
+                <div className="relative flex items-center justify-center w-12 h-12">
+                  <div className="absolute w-full h-[1px] bg-tertiary-container"></div>
+                  <div className="absolute h-full w-[1px] bg-tertiary-container"></div>
+                  <div className="w-3 h-3 rounded-full bg-primary-container/40 animate-ping"></div>
+                </div>
+                <div className="w-full flex justify-between font-label-sm text-label-sm text-tertiary-fixed">
+                  <span>DIST: 0.28M</span>
+                  <span>CONF: 99.8%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Target Status Banner */}
+            <div className="relative z-10 w-full flex items-center justify-between bg-surface-container-lowest/90 backdrop-blur-md px-2 py-1.5 rounded-DEFAULT font-mono border border-outline-variant/30 text-[10px]">
+              <div className="flex items-center gap-1.5 text-primary-fixed">
+                <span className="material-symbols-outlined text-[14px]">qr_code_scanner</span>
+                <span className="font-bold tracking-wider">QRPH SENSOR ACTIVE</span>
+              </div>
+              <span className="text-secondary tracking-wider">INSTAPAY ROUTED</span>
+            </div>
+          </div>
+
+          {/* Micro Instruction Deck */}
+          <div className="flex items-center justify-between px-space-xs text-on-surface-variant font-label-sm text-label-sm font-mono">
+            <div className="flex items-center gap-space-xs">
+              <span className="material-symbols-outlined text-[14px] text-tertiary">info</span>
+              <span>POINT CAMERA AT ANY QRPH, GCASH, OR MAYA CODE</span>
+            </div>
+            <span className="text-primary-fixed uppercase tracking-wider">AUTO-DEC</span>
+          </div>
+        </div>
+
+        {/* Bottom Bar: Cancel Button */}
+        <div className="pt-2 pb-safe border-t border-outline-variant/30 flex justify-center">
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="min-h-[44px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold shrink-0 transition-colors"
+            onClick={onClose}
+            className="w-full py-2.5 rounded-lg bg-surface-container-high text-on-surface font-headline-md text-headline-md text-sm font-bold tracking-wide uppercase active:translate-y-0.5 transition-transform"
           >
-            <Image className="w-4 h-4 text-blue-400" />
-            <span>Upload Photo</span>
+            CANCEL SCAN
           </button>
         </div>
       </div>
     </div>
   );
 };
+

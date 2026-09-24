@@ -1,20 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import confetti from 'canvas-confetti';
-import {
-  X,
-  RotateCw,
-  Sun,
-  Maximize,
-  Minimize,
-  Copy,
-  Check,
-  ShieldCheck,
-  Image as ImageIcon,
-  Sparkles,
-} from 'lucide-react';
 import type { QRCardItem } from '../types/qr';
-import { BANK_CONFIGS } from '../types/qr';
 import { formatAccountNumber } from '../lib/emvcoParser';
 import { triggerHaptic } from '../lib/security';
 
@@ -30,22 +16,9 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   onNotify,
 }) => {
   const [isRotated, setIsRotated] = useState(false);
-  const [viewMode, setViewMode] = useState<'vector' | 'original'>('vector');
   const [copiedNumber, setCopiedNumber] = useState(false);
-  const [copiedAll, setCopiedAll] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const wakeLockRef = useRef<any>(null);
-
-  // Default to original image if no rawPayload available
-  useEffect(() => {
-    if (card && !card.rawPayload) {
-      setViewMode('original');
-    } else {
-      setViewMode('vector');
-    }
-    setIsRotated(false);
-  }, [card]);
 
   // Screen Wake Lock API to prevent screen timeout while presenting
   useEffect(() => {
@@ -64,8 +37,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
               if (active) setWakeLockActive(false);
             });
           }
-        } catch (err) {
-          console.warn('Wake Lock error:', err);
+        } catch {
           if (active) setWakeLockActive(false);
         }
       }
@@ -95,274 +67,274 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
 
   if (!card) return null;
 
-  const bankConfig = BANK_CONFIGS[card.bank] || BANK_CONFIGS.other;
-
-  const toggleRotation = () => {
-    setIsRotated(!isRotated);
-    triggerHaptic('light');
-  };
-
-  const toggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-      } else {
-        await document.exitFullscreen();
-        setIsFullscreen(false);
-      }
-      triggerHaptic('light');
-    } catch (e) {
-      console.warn('Fullscreen error:', e);
-    }
-  };
+  const bankName = (card.bankCustomName || card.bank).toUpperCase();
 
   const handleCopyNumber = () => {
     navigator.clipboard.writeText(card.accountNumber);
     setCopiedNumber(true);
     triggerHaptic('success');
-    try {
-      confetti({
-        particleCount: 30,
-        spread: 45,
-        origin: { y: 0.8 },
-      });
-    } catch {}
-    onNotify('Account Number Copied!', card.accountNumber, 'success');
+    onNotify('Number Copied!', card.accountNumber, 'success');
     setTimeout(() => setCopiedNumber(false), 2000);
   };
 
-  const handleCopyAll = () => {
-    const details = [
-      `Send via QR Ph / InstaPay:`,
-      `Bank / Wallet: ${card.bankCustomName || bankConfig.name}`,
-      `Account Name: ${card.accountName}`,
-      `Account Number: ${card.accountNumber}`,
-      card.notes ? `Note: ${card.notes}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    navigator.clipboard.writeText(details);
-    setCopiedAll(true);
-    triggerHaptic('success');
+  const handleSaveToDevice = () => {
     try {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.85 },
-      });
-    } catch {}
-    onNotify('All Details Copied!', 'Account and bank details ready to paste', 'success');
-    setTimeout(() => setCopiedAll(false), 2000);
+      const link = document.createElement('a');
+      link.download = `PocketQR_${card.accountName.replace(/\s+/g, '_')}_${card.bank}.png`;
+      link.href = card.imageDataUrl || '';
+      if (!card.imageDataUrl && card.rawPayload) {
+        // Can convert SVG to data URL or fallback
+        const svg = document.getElementById('presentation-qr-svg');
+        if (svg) {
+          const svgData = new XMLSerializer().serializeToString(svg);
+          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          link.href = URL.createObjectURL(svgBlob);
+          link.download = `PocketQR_${card.accountName.replace(/\s+/g, '_')}_${card.bank}.svg`;
+        }
+      }
+      link.click();
+      triggerHaptic('success');
+      onNotify('Saved to Device', 'QR Code image downloaded to phone', 'success');
+    } catch {
+      onNotify('Save Error', 'Could not save QR image', 'error');
+    }
+  };
+
+  const handleShare = async () => {
+    triggerHaptic('light');
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `PocketQR - ${card.accountName} (${bankName})`,
+          text: `Payee: ${card.accountName}\nBank: ${bankName}\nAccount: ${card.accountNumber}`,
+        });
+      } catch {}
+    } else {
+      navigator.clipboard.writeText(
+        `Payee: ${card.accountName}\nBank: ${bankName}\nAccount: ${card.accountNumber}`
+      );
+      onNotify('Details Copied!', 'Payment credentials copied to clipboard', 'info');
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/92 backdrop-blur-2xl animate-in fade-in duration-200 safe-p">
-      {/* Background ambient lighting matching the bank */}
-      <div
-        className="absolute inset-0 opacity-20 pointer-events-none transition-colors duration-500"
-        style={{
-          background: `radial-gradient(circle at center, ${bankConfig.accentColor} 0%, transparent 70%)`,
-        }}
-      />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
+      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-between py-2 sm:py-4 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
+        {/* Header */}
+        <header className="sticky top-0 w-full z-10 pt-safe bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30 pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-space-sm">
+              <button
+                onClick={onClose}
+                aria-label="Return"
+                className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface active:translate-y-0.5 transition-transform border border-outline-variant/40"
+              >
+                <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+              </button>
+              <h1 className="font-headline-md text-headline-md tracking-tight text-on-surface uppercase truncate font-bold text-sm sm:text-base">
+                Present QR // Cashier Scan
+              </h1>
+            </div>
 
-      <div className="relative w-full max-w-lg md:max-w-2xl lg:max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] modal-overscroll-contain">
-        {/* Top Control Bar */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-800 bg-slate-950/70 backdrop-blur-md shrink-0">
-          {/* Bank tag & Wake lock indicator */}
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-semibold ${bankConfig.badgeBg} ${bankConfig.badgeText} border border-white/10`}
-            >
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: bankConfig.accentColor }}
-              />
-              {card.bankCustomName || bankConfig.name}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setIsRotated(!isRotated)}
+                title="Rotate 180° for Cashier Facing"
+                className="p-2 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface active:translate-y-0.5 transition-transform"
+              >
+                <span className="material-symbols-outlined text-[18px]">screen_rotation</span>
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+          </div>
+        </header>
 
-            {wakeLockActive && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-amber-300/90 bg-amber-500/10 px-2.5 py-0.5 rounded-md border border-amber-500/20">
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-                Awake
+        {/* Main Content Area */}
+        <div className="flex flex-col w-full py-3 space-y-space-md select-none font-mono">
+          {/* Telemetry & Hardware Status Bar */}
+          <div className="flex items-center justify-between bg-surface-container-low px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
+            <div className="flex items-center gap-space-xs">
+              <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+              <span className="font-label-sm text-label-sm text-primary tracking-widest uppercase font-bold">
+                RX // CARTRIDGE LOADED
               </span>
-            )}
+            </div>
+            <div className="flex items-center gap-space-xs bg-surface-container-highest px-space-sm py-0.5 rounded-full border border-outline-variant/40">
+              <span className="material-symbols-outlined text-[14px] text-secondary">
+                light_mode
+              </span>
+              <span className="font-label-sm text-label-sm text-secondary tracking-wider font-bold">
+                {wakeLockActive ? 'MAX LUX ACTIVE' : 'AUTO LUX'}
+              </span>
+            </div>
           </div>
 
-          {/* Action buttons: Rotate, Fullscreen, Close (44px touch targets) */}
-          <div className="flex items-center gap-2">
-            {/* Flip 180 button for cashier */}
-            <button
-              onClick={toggleRotation}
-              title={isRotated ? 'Reset Orientation' : 'Flip 180° for Cashier across counter'}
-              className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-colors flex items-center justify-center gap-1.5 ${
-                isRotated
-                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700'
-              }`}
-            >
-              <RotateCw
-                className={`w-4 h-4 transition-transform duration-300 ${
-                  isRotated ? 'rotate-180' : ''
-                }`}
-              />
-              <span>{isRotated ? 'Flipped' : 'Flip 180°'}</span>
-            </button>
+          {/* Giant Retro LCD Framing Chassis */}
+          <div
+            className={`relative bg-surface-container-high p-space-md rounded-xl shadow-xl border border-outline-variant/40 transition-transform duration-300 ${
+              isRotated ? 'rotate-180' : ''
+            }`}
+          >
+            {/* Molded Hardware Screw Accents in the 4 corners */}
+            <div className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest flex items-center justify-center">
+              <span className="w-1.5 h-0.5 bg-outline-variant block rotate-45"></span>
+            </div>
+            <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest flex items-center justify-center">
+              <span className="w-1.5 h-0.5 bg-outline-variant block -rotate-45"></span>
+            </div>
+            <div className="absolute bottom-2 left-2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest flex items-center justify-center">
+              <span className="w-1.5 h-0.5 bg-outline-variant block -rotate-12"></span>
+            </div>
+            <div className="absolute bottom-2 right-2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest flex items-center justify-center">
+              <span className="w-1.5 h-0.5 bg-outline-variant block rotate-45"></span>
+            </div>
 
-            {/* Fullscreen Toggle */}
-            <button
-              onClick={toggleFullscreen}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-              className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center"
-            >
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-            </button>
+            {/* Inner Bezel Header Deck */}
+            <div className="flex items-center justify-between px-space-xs pb-space-sm border-b border-outline-variant/20 mb-2">
+              <div className="flex items-center gap-space-xs">
+                <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold">
+                  SLOT 01
+                </span>
+                <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-1.5 py-0.5 rounded-DEFAULT font-bold">
+                  QRPh 2.0
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-label-sm text-label-sm text-outline tracking-tight">
+                  FREQ: 2.4GHz
+                </span>
+                <span className="material-symbols-outlined text-[15px] text-primary">nfc</span>
+              </div>
+            </div>
 
-            {/* Close */}
-            <button
-              onClick={onClose}
-              className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-rose-900/40 hover:border-rose-700 transition-colors flex items-center justify-center"
-              aria-label="Close presentation mode"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+            {/* LCD Recessed Screen (High Reflectance Paper/Matrix Style) */}
+            <div className="relative bg-surface-bright p-space-md rounded-lg shadow-inner overflow-hidden flex flex-col items-center border border-outline-variant/30">
+              {/* Dot-Matrix Decorative Mesh Backdrop */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#003822_1px,transparent_1px)] [background-size:6px_6px]"></div>
 
-        {/* View Mode Switcher (Vector vs Original Screenshot) */}
-        {card.rawPayload && (
-          <div className="flex items-center justify-center gap-2 py-1.5 px-4 bg-slate-950/50 border-b border-slate-800/60 shrink-0">
-            <button
-              onClick={() => setViewMode('vector')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                viewMode === 'vector'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Razor-Sharp Vector</span>
-            </button>
-            <button
-              onClick={() => setViewMode('original')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                viewMode === 'original'
-                  ? 'bg-slate-700 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span>Original Screenshot</span>
-            </button>
-          </div>
-        )}
-
-        {/* Adaptive Body: Stacked on Portrait phones, Side-by-Side on Landscape / Tablets */}
-        <div className="flex-1 overflow-y-auto touch-scroll flex flex-col md:flex-row items-center md:items-stretch justify-center bg-slate-950/40">
-          {/* Left / Center QR Container */}
-          <div className="flex-1 p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center">
-            <div
-              className={`transition-transform duration-500 ease-in-out ${
-                isRotated ? 'rotate-180' : ''
-              }`}
-            >
-              <div className="qr-quiet-zone p-4 sm:p-6 md:p-8 rounded-3xl flex flex-col items-center justify-center border-4 border-white max-w-[85vw] sm:max-w-none">
-                {/* Brand mini header in quiet zone */}
-                <div className="flex items-center gap-1.5 mb-2 text-slate-900">
-                  <span className="font-extrabold tracking-tight text-xs sm:text-sm font-sans">
-                    {card.bankCustomName || bankConfig.name}
-                  </span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 bg-red-600 text-white rounded">
-                    QR Ph
+              {/* Station / Rail Pill */}
+              <div className="relative z-10 w-full flex items-center justify-between bg-surface-container-lowest text-on-surface px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
+                <div className="flex items-center gap-space-xs">
+                  <div className="w-4 h-4 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-bold text-[9px] font-label-sm">
+                    ✓
+                  </div>
+                  <span className="font-headline-md text-label-md text-tertiary tracking-wider font-bold">
+                    {bankName} {card.category.toUpperCase()}
                   </span>
                 </div>
+                <span className="font-label-sm text-label-sm text-primary uppercase font-bold tracking-wider">
+                  SYNCED
+                </span>
+              </div>
 
-                {/* QR Code Matrix (Fluid responsiveness) */}
-                <div className="relative flex items-center justify-center">
-                  {viewMode === 'vector' && card.rawPayload ? (
-                    <QRCodeSVG
-                      value={card.rawPayload}
-                      size={260}
-                      level="Q"
-                      includeMargin={false}
-                      className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] md:w-[260px] md:h-[260px] lg:w-[280px] lg:h-[280px]"
-                    />
-                  ) : (
-                    <img
-                      src={card.imageDataUrl}
-                      alt={card.accountName}
-                      className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] md:w-[260px] md:h-[260px] lg:w-[280px] lg:h-[280px] object-contain rounded"
-                    />
-                  )}
-                </div>
+              {/* High-Fidelity Tactical QR Display */}
+              <div className="relative z-10 my-space-md p-space-md bg-white rounded-xl shadow-lg flex flex-col items-center justify-center">
+                {card.rawPayload ? (
+                  <QRCodeSVG
+                    id="presentation-qr-svg"
+                    value={card.rawPayload}
+                    size={220}
+                    level="M"
+                    includeMargin={false}
+                  />
+                ) : (
+                  <img
+                    src={card.imageDataUrl}
+                    alt={card.accountName}
+                    className="w-56 h-56 object-contain"
+                  />
+                )}
+              </div>
 
-                {/* Scannable Notice */}
-                <div className="mt-2.5 flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Optical QR Ph Scannable</span>
+              {/* Scan Alignment Watermark */}
+              <div className="mt-space-xs flex items-center justify-between w-full px-space-xs text-[10px] text-outline">
+                <span className="tracking-wider">STANDARDIZED QRPH P2P</span>
+                <span className="text-inverse-primary font-bold tracking-wider">PH-NPS</span>
+              </div>
+
+              {/* Payee Credentials Deck */}
+              <div className="relative z-10 w-full flex flex-col items-center text-center space-y-1 mt-2">
+                <span className="font-label-sm text-[9px] text-outline tracking-wider uppercase font-bold">
+                  PAYEE NAME // VERIFIED REGISTERED
+                </span>
+                <h2 className="font-headline-md text-headline-md text-on-surface font-bold tracking-tight text-lg">
+                  {card.accountName}
+                </h2>
+
+                {/* Mobile Target Pill with Tactile Copy Action */}
+                <div className="mt-space-xs flex items-center gap-space-xs bg-surface-container-lowest px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
+                  <span className="material-symbols-outlined text-[16px] text-primary">
+                    smartphone
+                  </span>
+                  <span className="font-label-md text-label-md text-on-surface font-bold tracking-wider">
+                    {formatAccountNumber(card.accountNumber, false)}
+                  </span>
+                  <button
+                    onClick={handleCopyNumber}
+                    className="ml-space-xs bg-surface-container-high hover:bg-surface-bright text-primary font-label-sm text-label-sm px-space-sm py-0.5 rounded transition-transform active:translate-y-0.5 flex items-center gap-1 font-bold cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">
+                      {copiedNumber ? 'check' : 'content_copy'}
+                    </span>
+                    <span>{copiedNumber ? '[ COPIED ]' : '[ COPY ]'}</span>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Column / Bottom Sheet: Account Details & Actions */}
-          <div className="w-full md:w-80 lg:w-96 p-4 sm:p-6 bg-slate-900/90 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col justify-center shrink-0">
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Account Holder
-              </span>
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white tracking-tight break-words mt-0.5">
-                {card.accountName}
-              </h2>
+          {/* Industrial Advisory Notice Bento */}
+          <div className="bg-surface-container-low p-space-md rounded-xl flex items-start gap-space-md shadow-sm border border-outline-variant/30 text-xs">
+            <div className="p-space-xs bg-surface-container-highest rounded-lg text-primary flex items-center justify-center mt-0.5">
+              <span className="material-symbols-outlined text-[20px]">verified_user</span>
             </div>
-
-            {/* Account Number Box */}
-            <div className="mt-4 p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-mono block">
-                Account / Mobile Number
+            <div className="flex-1 flex flex-col min-w-0">
+              <span className="font-label-md text-label-md text-primary font-bold tracking-wide">
+                INTEROPERABLE QRPH ROUTER
               </span>
-              <span className="font-mono text-base sm:text-lg md:text-xl font-bold text-slate-100 tracking-wider block mt-1">
-                {formatAccountNumber(card.accountNumber, false)}
-              </span>
-            </div>
-
-            {/* Action Buttons (Full-width on tablet sidebar) */}
-            <div className="mt-4 space-y-2.5">
-              {/* Copy Number */}
-              <button
-                onClick={handleCopyNumber}
-                className={`min-h-[44px] w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-98 ${
-                  copiedNumber
-                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30'
-                }`}
-              >
-                {copiedNumber ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedNumber ? 'Number Copied!' : 'Copy Account Number'}</span>
-              </button>
-
-              {/* Copy All Details */}
-              <button
-                onClick={handleCopyAll}
-                className={`min-h-[44px] w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors active:scale-98 ${
-                  copiedAll
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                    : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-750'
-                }`}
-              >
-                {copiedAll ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedAll ? 'All Info Copied!' : 'Copy All Transfer Info'}</span>
-              </button>
-            </div>
-
-            {/* Notes Snippet */}
-            {card.notes && (
-              <p className="mt-3 text-xs text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <span className="font-semibold text-slate-300">Note: </span>
-                {card.notes}
+              <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 font-sans leading-relaxed">
+                Scan natively with <strong className="text-on-surface font-semibold">GCash</strong>,{' '}
+                <strong className="text-on-surface font-semibold">Maya</strong>,{' '}
+                <strong className="text-on-surface font-semibold">BPI</strong>, or any compliant
+                Philippine bank. Real-time P2P settlement with zero transfer surcharges.
               </p>
-            )}
+            </div>
+          </div>
+
+          {/* Physical Neo-Brutalist Actuator Cluster (Action Deck) */}
+          <div className="flex flex-col space-y-space-sm pt-space-xs">
+            <button
+              onClick={handleSaveToDevice}
+              className="w-full bg-primary-container text-on-primary font-headline-md text-headline-md py-3 px-space-md rounded-lg shadow-lg flex items-center justify-center gap-space-sm transition-transform active:translate-y-0.5 font-bold uppercase hover:bg-primary-fixed cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">download</span>
+              <span>[ SAVE TO DEVICE ]</span>
+            </button>
+
+            <div className="grid grid-cols-2 gap-space-sm">
+              <button
+                onClick={handleShare}
+                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2.5 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-outline-variant/30 font-bold hover:bg-surface-bright cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px] text-tertiary">share</span>
+                <span className="truncate">[ SHARE CARTRIDGE ]</span>
+              </button>
+
+              <button
+                onClick={() => setIsRotated(!isRotated)}
+                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2.5 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-outline-variant/30 font-bold hover:bg-surface-bright cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px] text-secondary">
+                  screen_rotation
+                </span>
+                <span className="truncate">[ FLIP 180° ]</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

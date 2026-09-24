@@ -1,5 +1,4 @@
 import React from 'react';
-import { Plus, Eye, EyeOff, Settings, Search, QrCode, ScanLine } from 'lucide-react';
 
 interface HeaderProps {
   onScanToPayClick: () => void;
@@ -15,9 +14,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  onScanToPayClick,
   onAddClick,
-  onSettingsClick,
   searchQuery,
   onSearchChange,
   privacyMask,
@@ -27,115 +24,105 @@ export const Header: React.FC<HeaderProps> = ({
   cardCount,
 }) => {
   return (
-    <header className="sticky top-0 z-30 bg-fintech-dark/85 backdrop-blur-xl border-b border-slate-800/80 transition-all safe-top">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 safe-x">
-        <div className="flex items-center justify-between gap-2 sm:gap-3">
-          {/* Brand & Badges */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-emerald-500 p-0.5 shadow-lg shadow-blue-500/20 flex items-center justify-center shrink-0">
-              <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                <QrCode className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
-              </div>
-            </div>
+    <header className="sticky top-0 w-full z-40 pt-safe bg-surface-container-lowest/90 backdrop-blur-xl border-b border-outline-variant/40 shadow-[0_1px_8px_rgba(0,0,0,0.5)] transition-all">
+      <div className="max-w-md mx-auto px-margin py-2.5 flex flex-col gap-1">
+        {/* Top Hardware Telemetry Strip */}
+        <div className="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+          <div className="flex items-center gap-space-xs">
+            <span className="text-primary-fixed">SYS://ONLINE</span>
+            <span className="text-outline">|</span>
+            <span className="text-tertiary tracking-widest">BAT [||||]</span>
+          </div>
+          <div className="flex items-center gap-space-xs font-label-sm text-label-sm text-primary">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+            <span className="tracking-wider">LIVE-LINK</span>
+          </div>
+        </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
-                  Pocket<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">QR</span>
-                </h1>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-950/60 text-red-300 border border-red-800/40">
-                  🇵🇭 QR Ph
+        {/* Main Branding & Action Row */}
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-space-sm">
+            <div className="w-8 h-8 rounded-lg bg-surface-container-high border border-primary-fixed-dim/40 flex items-center justify-center text-primary-fixed">
+              <span className="material-symbols-outlined text-[18px]">developer_board</span>
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-space-xs">
+                <span className="font-headline-md text-headline-md tracking-tight text-primary-fixed uppercase font-bold">
+                  POCKET•QR
+                </span>
+                <span className="font-label-sm text-label-sm text-outline px-1 rounded-DEFAULT bg-surface-container-low">
+                  v1.0
                 </span>
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Local-First • {cardCount} {cardCount === 1 ? 'card' : 'cards'}
-                </span>
-              </div>
+              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
+                ROM VAULT // {cardCount} {cardCount === 1 ? 'SLOT' : 'SLOTS'}
+              </span>
             </div>
           </div>
 
-          {/* Quick Action Controls with 44px minimum tap targets */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Quick Action Controls */}
+          <div className="flex items-center gap-1.5">
             {/* Search Toggle */}
             <button
               onClick={onToggleSearch}
-              aria-label="Search QR codes"
-              className={`min-h-[44px] min-w-[44px] px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-colors flex items-center justify-center gap-1.5 ${
+              aria-label="Search ROMs"
+              className={`p-1.5 rounded-lg border transition-colors flex items-center justify-center ${
                 isSearchOpen
-                  ? 'bg-blue-600/20 border-blue-500/50 text-blue-300'
-                  : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-primary-container/20 border-primary-fixed text-primary-fixed'
+                  : 'bg-surface-container-high border-outline-variant/60 text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <Search className="w-4 h-4" />
-              <span className="hidden md:inline">Search</span>
+              <span className="material-symbols-outlined text-[18px]">search</span>
             </button>
 
-            {/* Privacy Number Masking Toggle */}
+            {/* Privacy Mask Toggle */}
             <button
               onClick={onTogglePrivacyMask}
-              aria-label={privacyMask ? 'Show full account numbers' : 'Mask account numbers'}
-              title={privacyMask ? 'Account numbers masked (Click to reveal)' : 'Account numbers visible (Click to mask)'}
-              className={`min-h-[44px] min-w-[44px] px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-colors flex items-center justify-center gap-1.5 ${
+              aria-label={privacyMask ? 'Show numbers' : 'Mask numbers'}
+              title={privacyMask ? 'Numbers masked' : 'Numbers visible'}
+              className={`p-1.5 rounded-lg border transition-colors flex items-center justify-center ${
                 privacyMask
-                  ? 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white'
-                  : 'bg-amber-500/10 border-amber-500/40 text-amber-300 hover:bg-amber-500/20'
+                  ? 'bg-surface-container-high border-outline-variant/60 text-on-surface-variant hover:text-on-surface'
+                  : 'bg-secondary/20 border-secondary text-secondary'
               }`}
             >
-              {privacyMask ? <EyeOff className="w-4 h-4 text-slate-400" /> : <Eye className="w-4 h-4 text-amber-400" />}
-              <span className="hidden lg:inline">{privacyMask ? 'Masked' : 'Revealed'}</span>
+              <span className="material-symbols-outlined text-[18px]">
+                {privacyMask ? 'visibility_off' : 'visibility'}
+              </span>
             </button>
 
-            {/* Settings & Backup Modal */}
-            <button
-              onClick={onSettingsClick}
-              aria-label="Settings and Backup"
-              title="Vault Settings & Backups"
-              className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-
-            {/* Scan to Pay Button */}
-            <button
-              onClick={onScanToPayClick}
-              className="min-h-[44px] flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-emerald-950/40 active:scale-95 transition-all"
-            >
-              <ScanLine className="w-4 h-4 text-emerald-200" />
-              <span>Scan to Pay</span>
-            </button>
-
-            {/* Add QR CTA */}
+            {/* ADD ROM CTA */}
             <button
               onClick={onAddClick}
-              className="min-h-[44px] flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium text-xs sm:text-sm shadow-lg shadow-blue-950/30 active:scale-95 transition-all"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-surface-container-high border border-primary-fixed-dim text-primary-fixed font-label-sm text-label-sm rounded-lg shadow-[0_2px_0_0_#0b0e15] active:translate-y-0.5 transition-transform uppercase font-bold tracking-wider hover:text-primary cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add QR</span>
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              <span>ADD ROM</span>
             </button>
           </div>
         </div>
 
         {/* Expandable Search Input Bar */}
         {isSearchOpen && (
-          <div className="mt-3 pt-2 border-t border-slate-800/60 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="mt-2 pt-2 border-t border-outline-variant/30 animate-in fade-in duration-150">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <span className="material-symbols-outlined text-[18px] absolute left-3 top-1/2 -translate-y-1/2 text-outline">
+                search
+              </span>
               <input
                 type="text"
                 autoFocus
-                placeholder="Search by account name, bank (GCash, Maya, RCBC...), or phone/account number..."
+                placeholder="Search ROMs, payee, or account..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all min-h-[44px]"
+                className="w-full bg-surface-container-lowest border border-outline-variant/80 rounded-lg pl-9 pr-9 py-2 text-xs font-label-md text-on-surface placeholder-outline focus:outline-none focus:border-primary-fixed transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={() => onSearchChange('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white bg-slate-800 px-2 py-1 rounded"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-label-sm text-outline hover:text-on-surface bg-surface-container-high px-1.5 py-0.5 rounded"
                 >
-                  Clear
+                  CLEAR
                 </button>
               )}
             </div>
