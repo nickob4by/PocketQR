@@ -910,15 +910,17 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
       {/* FLOATING FLASH TELEMETRY NOTICE (INTERACTIVE MICRO-FEEDBACK) */}
       <div
         id="flash-notice"
-        className={`fixed bottom-24 left-4 right-4 z-40 p-space-md rounded-lg bg-surface-container-highest text-primary-fixed font-label-sm text-label-sm flex items-center justify-between shadow-2xl transition-opacity duration-300 border border-primary-fixed-dim/30 ${
-          flashNotice ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        className={`fixed top-20 left-4 right-4 max-w-md mx-auto z-[100] p-space-md rounded-xl bg-surface-container-highest/95 backdrop-blur-xl text-primary-fixed font-label-sm text-label-sm flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.8)] border border-primary-fixed-dim/50 transition-all duration-300 ${
+          flashNotice
+            ? 'opacity-100 translate-y-0 pointer-events-auto'
+            : 'opacity-0 -translate-y-4 pointer-events-none'
         }`}
       >
         <div className="flex items-center gap-space-xs">
-          <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
-          <span id="flash-notice-text">{flashNotice || 'OPERATION EXECUTED'}</span>
+          <span className="material-symbols-outlined text-[16px] animate-spin text-primary-fixed">sync</span>
+          <span id="flash-notice-text" className="font-bold tracking-wide">{flashNotice || 'OPERATION EXECUTED'}</span>
         </div>
-        <span className="text-outline font-label-sm text-[8px]">[ACK]</span>
+        <span className="text-outline font-label-sm text-[8px] bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant/40">[ACK]</span>
       </div>
     </div>
   );
