@@ -59,7 +59,7 @@ main {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
 }
 .pt-safe {
-  padding-top: max(env(safe-area-inset-top, 0px), 0px);
+  padding-top: max(env(safe-area-inset-top, 0px), 12px);
 }
 /* Ensure universal vertical touch scrolling across all elements, buttons, and cards */
 *,
@@ -103,7 +103,7 @@ main,
 
 /* iOS Safe Area Insets for standalone PWA & notch / Dynamic Island */
 .safe-top {
-  padding-top: max(env(safe-area-inset-top, 0px), 0px);
+  padding-top: max(env(safe-area-inset-top, 0px), 12px);
 }
 
 .safe-bottom {

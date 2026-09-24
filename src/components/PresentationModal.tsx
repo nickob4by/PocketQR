@@ -140,8 +140,8 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface sm:bg-surface-container-lowest/80 sm:backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-md bg-surface text-on-surface flex flex-col sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl overflow-hidden">
         {/* Header - Fixed Flex Sibling, strictly above scrollable content */}
-        <header className="flex-shrink-0 w-full z-30 pt-safe bg-surface border-b border-outline-variant/30 px-margin py-2.5">
-          <div className="flex items-center justify-between">
+        <header className="flex-shrink-0 w-full z-30 pt-safe bg-surface border-b border-outline-variant/30 px-margin">
+          <div className="pt-3 pb-3 flex items-center justify-between">
             <div className="flex items-center gap-space-sm">
               <button
                 onClick={onClose}
