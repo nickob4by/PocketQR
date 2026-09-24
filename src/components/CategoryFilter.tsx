@@ -41,18 +41,31 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
     };
   }, [cards]);
 
-  const filterButtons: { id: FilterCategory; label: string; count: number }[] = [
-    { id: 'all', label: 'ALL', count: counts.all },
-    { id: 'gcash', label: 'GCASH', count: counts.gcash },
-    { id: 'maya', label: 'MAYA', count: counts.maya },
-    { id: 'bpi', label: 'BPI', count: counts.bpi },
-    { id: 'unionbank', label: 'UNIONBANK', count: counts.unionbank },
-    { id: 'bdo', label: 'BDO', count: counts.bdo },
-    { id: 'gotyme', label: 'GOTYME', count: counts.gotyme },
-    { id: 'rcbc', label: 'RCBC', count: counts.rcbc },
-    { id: 'seabank', label: 'SEABANK', count: counts.seabank },
-    { id: 'other', label: 'OTHER', count: counts.other },
-  ];
+  const filterButtons = React.useMemo(() => {
+    const allButtons: { id: FilterCategory; label: string; count: number }[] = [
+      { id: 'all', label: 'ALL', count: counts.all },
+      { id: 'gcash', label: 'GCASH', count: counts.gcash },
+      { id: 'maya', label: 'MAYA', count: counts.maya },
+      { id: 'bpi', label: 'BPI', count: counts.bpi },
+      { id: 'unionbank', label: 'UNIONBANK', count: counts.unionbank },
+      { id: 'bdo', label: 'BDO', count: counts.bdo },
+      { id: 'gotyme', label: 'GOTYME', count: counts.gotyme },
+      { id: 'rcbc', label: 'RCBC', count: counts.rcbc },
+      { id: 'seabank', label: 'SEABANK', count: counts.seabank },
+      { id: 'other', label: 'OTHER', count: counts.other },
+    ];
+
+    // Only show banks that actually have cards in the vault
+    return allButtons.filter((btn) => btn.id === 'all' || btn.count > 0);
+  }, [counts]);
+
+  // If current filter has 0 cards, reset to 'all'
+  React.useEffect(() => {
+    const exists = filterButtons.some((b) => b.id === currentFilter);
+    if (!exists && currentFilter !== 'all') {
+      onFilterChange('all');
+    }
+  }, [filterButtons, currentFilter, onFilterChange]);
 
   return (
     <div className="flex flex-col gap-space-xs p-space-sm bg-surface-container-low rounded-xl shadow-sm border border-outline-variant/30 mb-space-md">
@@ -66,11 +79,6 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
           <span className="text-outline text-[11px]">::</span>
           <span className="text-on-surface text-[11px]">
             {currentFilter.toUpperCase()} [{String(counts[currentFilter] ?? 0).padStart(2, '0')}]
-          </span>
-        </div>
-        <div className="flex items-center gap-space-xs text-on-surface-variant text-[10px]">
-          <span className="bg-surface-container-highest text-tertiary px-1.5 py-0.5 rounded font-bold font-mono">
-            SWIPE ↔
           </span>
         </div>
       </div>

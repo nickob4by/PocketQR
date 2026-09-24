@@ -43,26 +43,23 @@ export const QRCard: React.FC<QRCardProps> = ({
   return (
     <div
       onClick={() => onPresent(card)}
-      className="relative bg-surface-container-high rounded-xl p-space-md shadow-[0_4px_0_0_#0b0e15] border border-outline-variant/40 active:translate-y-0.5 transition-all flex flex-col gap-space-sm select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-[0_4px_12px_rgba(0,240,160,0.12)] group/card"
+      className="relative bg-surface-container-high rounded-xl p-2.5 shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 active:translate-y-0.5 transition-all flex flex-col gap-1.5 select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-[0_2px_8px_rgba(0,240,160,0.1)] group/card"
     >
       {/* Molded Inner Bezel Header Strip */}
-      <div className="flex items-center justify-between pb-1 bg-surface-container-lowest px-2.5 py-1.5 rounded-DEFAULT border border-outline-variant/20">
-        <div className="flex items-center gap-space-xs font-label-sm text-label-sm">
-          <span className="text-tertiary-fixed font-bold font-mono text-[11px]">ROM</span>
-          <span className="text-outline text-[11px]">/</span>
-          <span className="text-on-surface font-semibold tracking-wider font-mono text-[11px]">
-            {bankName}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between bg-surface-container-lowest px-2 py-1 rounded border border-outline-variant/20">
+        <div className="flex items-center gap-1.5 font-label-sm text-label-sm min-w-0">
           <span
-            className={`font-label-sm text-[10px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
+            className={`font-label-sm text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider shrink-0 ${
               bankConfig.badgeBg || 'bg-surface-container'
             } ${bankConfig.badgeText || 'text-on-surface'}`}
           >
             {card.bank.toUpperCase()}
           </span>
-
+          <span className="text-on-surface font-semibold tracking-wider font-mono text-[10px] truncate">
+            {bankName}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
           {/* Favorite Pin Toggle */}
           <button
             onClick={(e) => {
@@ -76,7 +73,7 @@ export const QRCard: React.FC<QRCardProps> = ({
             }`}
           >
             <span
-              className="material-symbols-outlined text-[16px]"
+              className="material-symbols-outlined text-[15px]"
               style={card.isFavorite ? { fontVariationSettings: "'FILL' 1" } : {}}
             >
               push_pin
@@ -93,7 +90,7 @@ export const QRCard: React.FC<QRCardProps> = ({
               className="text-outline hover:text-on-surface p-0.5 flex items-center cursor-pointer"
               aria-label="Options"
             >
-              <span className="material-symbols-outlined text-[16px]">more_vert</span>
+              <span className="material-symbols-outlined text-[15px]">more_vert</span>
             </button>
 
             {showMenu && (
@@ -137,71 +134,68 @@ export const QRCard: React.FC<QRCardProps> = ({
         </div>
       </div>
 
-      {/* Main Cartridge Body: Clean Info-Focused Layout */}
-      <div className="flex flex-col gap-1 py-1">
-        {/* Payee Credentials Column */}
-        <div className="flex flex-col justify-between flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1">
+      {/* Main Cartridge Body: Clean Compact Layout */}
+      <div className="flex flex-col gap-0.5 px-0.5">
+        <div className="flex items-center justify-between gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(card);
+            }}
+            title="Tap to rename"
+            className="flex items-center gap-1 text-left group/edit transition-colors max-w-full truncate cursor-pointer"
+          >
+            <span className="font-headline-md text-primary tracking-tight truncate border-b border-primary/20 group-hover/edit:border-primary font-bold text-sm">
+              {card.accountName}
+            </span>
+            <span className="material-symbols-outlined text-primary text-[13px] flex-shrink-0">
+              verified
+            </span>
+            <span className="material-symbols-outlined text-outline text-[11px] opacity-70 group-hover/edit:text-primary transition-colors flex-shrink-0">
+              edit
+            </span>
+          </button>
+        </div>
+
+        {/* Masked Account / Mobile Number with 1-Tap Copy */}
+        <div className="flex items-center gap-1.5">
+          <p className="font-label-md text-on-surface-variant tracking-wider font-mono text-[11px]">
+            {formatAccountNumber(card.accountNumber, isMasked)}
+          </p>
+
+          {/* Reveal toggle button */}
+          {privacyMask && (
             <button
-              type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit(card);
+                setLocalReveal(!localReveal);
               }}
-              title="Tap to rename"
-              className="flex items-center gap-1 text-left group/edit transition-colors max-w-full truncate cursor-pointer"
+              className="text-outline hover:text-on-surface p-0.5 cursor-pointer"
+              title={localReveal ? 'Mask number' : 'Reveal full number'}
             >
-              <span className="font-headline-md text-headline-md text-primary tracking-tight truncate border-b border-primary/20 group-hover/edit:border-primary font-bold text-base">
-                {card.accountName}
-              </span>
-              <span className="material-symbols-outlined text-primary text-[14px] flex-shrink-0">
-                verified
-              </span>
-              <span className="material-symbols-outlined text-outline text-[12px] opacity-70 group-hover/edit:text-primary transition-colors flex-shrink-0">
-                edit
+              <span className="material-symbols-outlined text-[12px]">
+                {localReveal ? 'visibility_off' : 'visibility'}
               </span>
             </button>
-          </div>
+          )}
 
-          {/* Masked Account / Mobile Number with 1-Tap Copy */}
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <p className="font-label-md text-label-md text-on-surface-variant tracking-wider font-mono text-xs">
-              {formatAccountNumber(card.accountNumber, isMasked)}
-            </p>
-
-            {/* Reveal toggle button */}
-            {privacyMask && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLocalReveal(!localReveal);
-                }}
-                className="text-outline hover:text-on-surface p-0.5 cursor-pointer"
-                title={localReveal ? 'Mask number' : 'Reveal full number'}
-              >
-                <span className="material-symbols-outlined text-[13px]">
-                  {localReveal ? 'visibility_off' : 'visibility'}
-                </span>
-              </button>
-            )}
-
-            <button
-              onClick={handleCopyNumber}
-              title="Copy account number"
-              className="text-outline hover:text-primary p-0.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[13px]">
-                {copiedNumber ? 'check' : 'content_copy'}
-              </span>
-            </button>
-          </div>
+          <button
+            onClick={handleCopyNumber}
+            title="Copy account number"
+            className="text-outline hover:text-primary p-0.5 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[12px]">
+              {copiedNumber ? 'check' : 'content_copy'}
+            </span>
+          </button>
         </div>
       </div>
 
-      {/* Bottom Card Strip: Rail Protocol Tag & PRESENT Actuator */}
-      <div className="flex items-center justify-between pt-1 border-t border-outline-variant/20">
-        <span className="font-label-sm text-[10px] text-outline bg-surface-container-low px-1.5 py-0.5 rounded font-mono">
-          {card.rawPayload ? 'QRPH // INSTAPAY' : 'PAYMENT ROM'}
+      {/* Bottom Card Strip: Rail Tag & Compact PRESENT Button */}
+      <div className="flex items-center justify-between pt-1 border-t border-outline-variant/15">
+        <span className="font-label-sm text-[9px] text-outline bg-surface-container-low px-1.5 py-0.5 rounded font-mono">
+          {card.rawPayload ? 'QRPH' : 'ROM'}
         </span>
 
         <button
@@ -209,9 +203,9 @@ export const QRCard: React.FC<QRCardProps> = ({
             e.stopPropagation();
             onPresent(card);
           }}
-          className="flex items-center gap-1 px-3 py-1 bg-primary text-on-primary font-label-sm text-label-sm rounded-lg shadow-[0_2px_0_0_#005234] active:translate-y-0.5 transition-transform font-bold font-mono hover:bg-primary-fixed cursor-pointer text-xs"
+          className="flex items-center gap-1 px-2.5 py-0.5 bg-primary text-on-primary rounded font-bold font-mono hover:bg-primary-fixed cursor-pointer text-[11px] active:translate-y-0.5 transition-transform"
         >
-          <span className="material-symbols-outlined text-[15px]">fullscreen</span>
+          <span className="material-symbols-outlined text-[13px]">fullscreen</span>
           <span>PRESENT</span>
         </button>
       </div>
