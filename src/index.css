@@ -2,8 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root, html[data-colorway="MINT"] {
   color-scheme: dark;
+  --theme-primary: #b6ffd4;
+  --theme-primary-container: #00f0a0;
+  --theme-primary-fixed: #4dffb2;
+  --theme-primary-fixed-dim: #00e296;
+  --theme-on-primary-container: #006843;
+  --theme-on-primary: #003822;
+  --theme-on-primary-fixed: #002112;
+  --theme-on-primary-fixed-variant: #005234;
+}
+
+html[data-colorway="AMBER"] {
+  --theme-primary: #ffd88a;
+  --theme-primary-container: #feb700;
+  --theme-primary-fixed: #ffc947;
+  --theme-primary-fixed-dim: #f59e0b;
+  --theme-on-primary-container: #6b4600;
+  --theme-on-primary: #3d2400;
+  --theme-on-primary-fixed: #271900;
+  --theme-on-primary-fixed-variant: #5e4200;
+}
+
+html[data-colorway="CYAN"] {
+  --theme-primary: #b6ebff;
+  --theme-primary-container: #00e1ff;
+  --theme-primary-fixed: #47d6ff;
+  --theme-primary-fixed-dim: #00b4d8;
+  --theme-on-primary-container: #004e60;
+  --theme-on-primary: #002833;
+  --theme-on-primary-fixed: #001f28;
+  --theme-on-primary-fixed-variant: #004e60;
 }
 
 html, body {

@@ -143,7 +143,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
-      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-between py-2 sm:py-4 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
+      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-start gap-2 py-2 sm:py-3 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
         {/* Header */}
         <header className="sticky top-0 w-full z-10 pt-safe bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30 pb-2">
           <div className="flex items-center justify-between">
@@ -179,7 +179,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
         </header>
 
         {/* Main Content Area */}
-        <div className="flex flex-col w-full py-3 space-y-space-md select-none font-mono">
+        <div className="flex flex-col w-full pt-1 pb-2 gap-2.5 select-none font-mono">
           {/* Telemetry & Hardware Status Bar */}
           <div className="flex items-center justify-between bg-surface-container-low px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
             <div className="flex items-center gap-space-xs">

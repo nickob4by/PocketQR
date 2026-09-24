@@ -1,5 +1,6 @@
 package ph.pocketqr.app;
 
+import android.app.KeyguardManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -8,10 +9,15 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.hardware.biometrics.BiometricPrompt;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
+import android.os.CancellationSignal;
 import android.os.Environment;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
@@ -418,6 +424,104 @@ public class BankingAppPlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "Failed to share image", e);
             call.reject("Failed to share image: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Native tactile vibration through Android's Vibrator / VibratorManager service.
+     */
+    @PluginMethod
+    public void vibrate(PluginCall call) {
+        int duration = call.getInt("duration", 25);
+        Context context = getContext();
+        try {
+            Vibrator vibrator = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                VibratorManager vm = (VibratorManager) context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                if (vm != null) {
+                    vibrator = vm.getDefaultVibrator();
+                }
+            }
+            if (vibrator == null) {
+                vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            }
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    vibrator.vibrate(duration);
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Native vibrate failed", e);
+        }
+        call.resolve();
+    }
+
+    /**
+     * Native biometric authentication via Android's BiometricPrompt.
+     */
+    @PluginMethod
+    public void authenticateBiometrics(PluginCall call) {
+        Context context = getContext();
+        KeyguardManager km = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
+
+        if (km == null || !km.isDeviceSecure()) {
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("unsecured", true);
+            call.resolve(ret);
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            getActivity().runOnUiThread(() -> {
+                try {
+                    CancellationSignal cancellationSignal = new CancellationSignal();
+                    BiometricPrompt prompt = new BiometricPrompt.Builder(context)
+                            .setTitle("PocketQR Security Interlock")
+                            .setSubtitle("Confirm your biometric identity to access vault")
+                            .setNegativeButton("Cancel", context.getMainExecutor(), (dialog, which) -> {
+                                JSObject ret = new JSObject();
+                                ret.put("success", false);
+                                ret.put("cancelled", true);
+                                call.resolve(ret);
+                            })
+                            .build();
+
+                    prompt.authenticate(cancellationSignal, context.getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
+                        @Override
+                        public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                            JSObject ret = new JSObject();
+                            ret.put("success", true);
+                            call.resolve(ret);
+                        }
+
+                        @Override
+                        public void onAuthenticationError(int errorCode, CharSequence errString) {
+                            JSObject ret = new JSObject();
+                            ret.put("success", false);
+                            ret.put("error", errString.toString());
+                            call.resolve(ret);
+                        }
+
+                        @Override
+                        public void onAuthenticationFailed() {
+                            // Attempt failed, prompt remains active
+                        }
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "Native BiometricPrompt failed", e);
+                    JSObject ret = new JSObject();
+                    ret.put("success", false);
+                    ret.put("error", e.getMessage());
+                    call.resolve(ret);
+                }
+            });
+        } else {
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
         }
     }
 }

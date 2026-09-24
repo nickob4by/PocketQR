@@ -97,6 +97,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   const handleSetThemeTone = (tone: 'MINT' | 'AMBER' | 'CYAN') => {
     setThemeTone(tone);
     localStorage.setItem('pocketqr_theme_tone', tone);
+    document.documentElement.setAttribute('data-colorway', tone);
     triggerHaptic('light');
   };
 
@@ -196,49 +197,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     onNotify('Memory Scrubbed', 'All bank slots and cryptographic keys zero-filled', 'info');
   };
 
-  const sramUsedPercent = Math.min(100, Math.round((cardCount / 16) * 100 * 10) / 10);
-
   return (
     <div className="flex flex-col w-full gap-space-lg pt-2 pb-12">
-      {/* SYSTEM TELEMETRY HUD CARD */}
-      <div className="relative w-full rounded-xl bg-surface-container-low p-space-md shadow-md overflow-hidden border border-outline-variant/30">
-        <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-primary-container/5 rounded-full blur-xl pointer-events-none"></div>
-        <div className="flex items-start justify-between gap-space-sm mb-space-sm">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-space-xs text-primary-fixed font-label-md text-label-md">
-              <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse shadow-[0_0_8px_rgba(0,240,160,0.8)]"></span>
-              <span>CONFIG // SYS_PARAMS</span>
-            </div>
-            <span className="font-headline-lg text-headline-lg text-on-surface tracking-tight uppercase mt-0.5">
-              HARDWARE CONTROL
-            </span>
-          </div>
-          <div className="px-2 py-1 rounded bg-surface-container-high text-primary font-label-sm text-label-sm tracking-wider border border-primary/20">
-            CORE-01 // OK
-          </div>
-        </div>
-
-        {/* Telemetry Badges Strip */}
-        <div className="grid grid-cols-3 gap-space-xs pt-space-xs bg-surface-container-lowest/80 rounded-lg p-space-xs border border-outline-variant/20">
-          <div className="flex flex-col p-1.5 rounded bg-surface-container">
-            <span className="text-on-surface-variant font-label-sm text-label-sm">KERNEL</span>
-            <span className="text-primary-fixed font-label-md text-label-md truncate">v1.0.11-APK</span>
-          </div>
-          <div className="flex flex-col p-1.5 rounded bg-surface-container">
-            <span className="text-on-surface-variant font-label-sm text-label-sm">SRAM USED</span>
-            <div className="flex items-center gap-1">
-              <span className="text-tertiary-fixed font-label-md text-label-md">
-                {sramUsedPercent}%
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col p-1.5 rounded bg-surface-container">
-            <span className="text-on-surface-variant font-label-sm text-label-sm">VOLTAGE</span>
-            <span className="text-secondary font-label-md text-label-md">3.88V NOM</span>
-          </div>
-        </div>
-      </div>
-
       {/* SECTION 1: HARDWARE & DISPLAY SETTINGS */}
       <div className="flex flex-col gap-space-sm">
         <div className="flex items-center justify-between px-space-xs">
@@ -461,7 +421,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                     Biometric Deck Interlock
                   </span>
                   <span className="px-1.5 py-0.5 rounded bg-surface-container-highest text-primary-fixed font-label-sm text-[8px] uppercase">
-                    {biometricsSupported ? 'FIDO2' : 'PIN_FALLBACK'}
+                    {biometricsSupported ? 'BIOMETRIC' : 'PIN_FALLBACK'}
                   </span>
                 </div>
                 <span className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">

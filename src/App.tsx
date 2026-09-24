@@ -85,6 +85,14 @@ export function App() {
     if (bioEnabled) {
       setIsVaultLocked(true);
     }
+    const savedTone = localStorage.getItem('pocketqr_theme_tone') || 'MINT';
+    document.documentElement.setAttribute('data-colorway', savedTone);
+    if (localStorage.getItem('pocketqr_crt_scanlines') === 'true') {
+      document.body.classList.add('crt-scanlines');
+    }
+    if (localStorage.getItem('pocketqr_oled_black') === 'true') {
+      document.documentElement.classList.add('oled-deep-black');
+    }
     loadCardsData();
   }, [loadCardsData]);
 
@@ -162,19 +170,16 @@ export function App() {
   // Filter & Search logic
   const filteredCards = useMemo(() => {
     return cards.filter((card) => {
-      // 1. Category Tab Filter
-      if (currentFilter === 'favorites' && !card.isFavorite) return false;
-      if (currentFilter === 'gcash' && card.bank !== 'gcash') return false;
-      if (currentFilter === 'maya' && card.bank !== 'maya') return false;
-      if (currentFilter === 'rcbc' && card.bank !== 'rcbc') return false;
-      if (
-        currentFilter === 'banks' &&
-        !['bpi', 'unionbank', 'bdo', 'metrobank', 'cimb', 'seabank', 'gotyme'].includes(card.bank)
-      ) {
-        return false;
+      // 1. Bank Channel Filter
+      if (currentFilter !== 'all') {
+        if (currentFilter === 'other') {
+          if (['gcash', 'maya', 'bpi', 'unionbank', 'bdo', 'gotyme', 'rcbc', 'seabank'].includes(card.bank)) {
+            return false;
+          }
+        } else if (card.bank !== currentFilter) {
+          return false;
+        }
       }
-      if (currentFilter === 'personal' && card.category !== 'personal') return false;
-      if (currentFilter === 'business' && card.category !== 'business') return false;
 
       // 2. Search query filter
       if (searchQuery.trim()) {

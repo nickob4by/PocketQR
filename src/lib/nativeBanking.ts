@@ -26,6 +26,8 @@ interface BankingAppPluginInterface {
     title?: string;
     text?: string;
   }): Promise<{ success: boolean }>;
+  vibrate(options: { duration: number }): Promise<void>;
+  authenticateBiometrics(): Promise<{ success: boolean; cancelled?: boolean; error?: string; unsecured?: boolean }>;
 }
 
 const BankingApp = registerPlugin<BankingAppPluginInterface>('BankingApp');
@@ -154,5 +156,37 @@ export async function shareImageNative(base64: string, title?: string, text?: st
   } catch (err) {
     console.warn('Native shareImage failed:', err);
     return false;
+  }
+}
+
+/**
+ * Triggers tactile vibration on native Android hardware.
+ */
+export async function vibrateNative(duration = 25): Promise<boolean> {
+  if (!isNativeAndroid()) {
+    return false;
+  }
+
+  try {
+    await BankingApp.vibrate({ duration });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Prompts native Android system BiometricPrompt (Fingerprint / Face Unlock).
+ */
+export async function authenticateBiometricsNative(): Promise<{ success: boolean; cancelled?: boolean; error?: string }> {
+  if (!isNativeAndroid()) {
+    return { success: true };
+  }
+
+  try {
+    return await BankingApp.authenticateBiometrics();
+  } catch (err: any) {
+    console.warn('Native biometric error:', err);
+    return { success: false, error: err.message };
   }
 }
