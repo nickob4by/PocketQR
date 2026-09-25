@@ -8,12 +8,14 @@ import {
   copyQRImageToClipboard,
   shareQRImage,
 } from '../lib/qrImageUtils';
+import { addLog } from '../lib/storage';
 
 interface PresentationModalProps {
   card: QRCardItem | null;
   onClose: () => void;
   onPayWithBank?: (card: QRCardItem) => void;
   onNotify: (title: string, description?: string, type?: 'success' | 'info' | 'error') => void;
+  onLogAdded?: () => void;
 }
 
 export const PresentationModal: React.FC<PresentationModalProps> = ({
@@ -21,6 +23,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   onClose,
   onPayWithBank,
   onNotify,
+  onLogAdded,
 }) => {
   const [isRotated, setIsRotated] = useState(false);
   const [copiedNumber, setCopiedNumber] = useState(false);
@@ -89,6 +92,13 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
     setCopiedNumber(true);
     triggerHaptic('success');
     onNotify('Number Copied!', resolvedAccountNumber, 'success');
+    addLog({
+      type: 'copied_details',
+      title: card.accountName,
+      bank: bankName,
+      accountNumber: resolvedAccountNumber,
+      detail: 'Copied account / phone number',
+    }).then(() => onLogAdded?.()).catch(console.warn);
     setTimeout(() => setCopiedNumber(false), 2000);
   };
 
@@ -106,6 +116,14 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
       setSavedToGallery(true);
       triggerHaptic('success');
       onNotify('Saved to Recent Photos!', 'Top photo for bank upload — auto-cleans automatically after use.', 'success');
+      addLog({
+        type: 'saved_photo',
+        title: card.accountName,
+        bank: bankName,
+        accountNumber: resolvedAccountNumber,
+        rawPayload: card.rawPayload,
+        detail: 'Saved to gallery / recents',
+      }).then(() => onLogAdded?.()).catch(console.warn);
     } else {
       onNotify('Save Failed', res.message, 'error');
     }
@@ -123,6 +141,14 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
       setCopiedQR(true);
       triggerHaptic('success');
       onNotify('QR Copied!', 'QR Image & details copied to clipboard', 'success');
+      addLog({
+        type: 'copied_details',
+        title: card.accountName,
+        bank: bankName,
+        accountNumber: resolvedAccountNumber,
+        rawPayload: card.rawPayload,
+        detail: 'Copied QR image to clipboard',
+      }).then(() => onLogAdded?.()).catch(console.warn);
       setTimeout(() => setCopiedQR(false), 2500);
     } else {
       onNotify('Copy Failed', res.message, 'error');

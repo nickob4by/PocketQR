@@ -13,6 +13,7 @@ interface ScanToPayModalProps {
   onClose: () => void;
   onSaveToWallet: (card: QRCardItem) => void;
   onNotify: (title: string, description?: string, type?: 'success' | 'info' | 'error') => void;
+  onLogAdded?: () => void;
 }
 
 export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
@@ -20,6 +21,7 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
   onClose,
   onSaveToWallet,
   onNotify,
+  onLogAdded,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -334,6 +336,7 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
           onSaveToWallet(card);
         }}
         onNotify={onNotify}
+        onLogAdded={onLogAdded}
       />
     );
   }

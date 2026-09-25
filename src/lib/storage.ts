@@ -1,6 +1,6 @@
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
-import type { QRCardItem } from '../types/qr';
+import type { QRCardItem, ActivityLogItem } from '../types/qr';
 
 interface PocketQRDB extends DBSchema {
   cards: {
@@ -12,6 +12,14 @@ interface PocketQRDB extends DBSchema {
       'by_bank': string;
     };
   };
+  activity_logs: {
+    key: string;
+    value: ActivityLogItem;
+    indexes: {
+      'by_timestamp': number;
+      'by_type': string;
+    };
+  };
   settings: {
     key: string;
     value: any;
@@ -19,7 +27,7 @@ interface PocketQRDB extends DBSchema {
 }
 
 const DB_NAME = 'pocketqr_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<PocketQRDB>> | null = null;
 
@@ -32,6 +40,11 @@ export function getDB(): Promise<IDBPDatabase<PocketQRDB>> {
           cardStore.createIndex('by_favorite', 'isFavorite');
           cardStore.createIndex('by_order', 'orderIndex');
           cardStore.createIndex('by_bank', 'bank');
+        }
+        if (!db.objectStoreNames.contains('activity_logs')) {
+          const logStore = db.createObjectStore('activity_logs', { keyPath: 'id' });
+          logStore.createIndex('by_timestamp', 'timestamp');
+          logStore.createIndex('by_type', 'type');
         }
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings');
@@ -272,3 +285,45 @@ export async function setSetting(key: string, value: any): Promise<void> {
   const db = await getDB();
   await db.put('settings', value, key);
 }
+
+/**
+ * Retrieves all activity logs ordered newest first.
+ */
+export async function getAllLogs(): Promise<ActivityLogItem[]> {
+  const db = await getDB();
+  const logs = await db.getAll('activity_logs');
+  return logs.sort((a, b) => b.timestamp - a.timestamp);
+}
+
+/**
+ * Appends a new activity log entry.
+ */
+export async function addLog(
+  log: Omit<ActivityLogItem, 'id' | 'timestamp'> & { timestamp?: number }
+): Promise<ActivityLogItem> {
+  const db = await getDB();
+  const newLog: ActivityLogItem = {
+    ...log,
+    id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    timestamp: log.timestamp || Date.now(),
+  };
+  await db.put('activity_logs', newLog);
+  return newLog;
+}
+
+/**
+ * Deletes a single log by ID.
+ */
+export async function deleteLog(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('activity_logs', id);
+}
+
+/**
+ * Clears all activity logs from the database.
+ */
+export async function clearAllLogs(): Promise<void> {
+  const db = await getDB();
+  await db.clear('activity_logs');
+}
+

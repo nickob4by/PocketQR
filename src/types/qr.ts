@@ -202,3 +202,25 @@ export const BANK_CONFIGS: Record<BankProvider, BankConfig> = {
     identifiers: ['qr ph', 'ppmi', 'bsp', 'instapay', 'pesonet'],
   },
 };
+
+export type LogActionType =
+  | 'dispatch_payment'
+  | 'saved_photo'
+  | 'copied_details'
+  | 'card_added'
+  | 'card_updated'
+  | 'card_deleted';
+
+export interface ActivityLogItem {
+  id: string;
+  type: LogActionType;
+  timestamp: number;
+  title: string;              // Payee, Card name, or Merchant
+  bank?: string;              // e.g. GCash, Maya, BPI
+  rail?: string;              // e.g. InstaPay, QR Ph
+  targetApp?: string;         // e.g. "GCash", "Maya" (for dispatched payments)
+  accountNumber?: string;
+  rawPayload?: string;        // Allows 1-tap re-paying
+  detail?: string;            // Contextual description
+}
+

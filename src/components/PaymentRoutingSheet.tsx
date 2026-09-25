@@ -20,6 +20,7 @@ import {
   copyQRImageToClipboard,
 } from '../lib/qrImageUtils';
 import type { QRCardItem } from '../types/qr';
+import { addLog } from '../lib/storage';
 
 interface PaymentRoutingSheetProps {
   parsed: ParsedEMVCo;
@@ -28,6 +29,7 @@ interface PaymentRoutingSheetProps {
   onClose: () => void;
   onSaveToWallet: (card: QRCardItem) => void;
   onNotify: (title: string, description?: string, type?: 'success' | 'info' | 'error') => void;
+  onLogAdded?: () => void;
 }
 
 export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
@@ -37,6 +39,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
   onClose,
   onSaveToWallet,
   onNotify,
+  onLogAdded,
 }) => {
   const [selectedApp, setSelectedApp] = useState<PayingBankApp>(() => {
     const savedDefaultId = getDefaultPayingBank();
@@ -101,6 +104,13 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
       setCopiedNumber(true);
       triggerHaptic('success');
       onNotify('Copied to Clipboard!', recipientNumber, 'success');
+      addLog({
+        type: 'copied_details',
+        title: recipientName,
+        bank: receivingBank,
+        accountNumber: recipientNumber,
+        detail: 'Copied account / phone number',
+      }).then(() => onLogAdded?.()).catch(console.warn);
       setTimeout(() => setCopiedNumber(false), 2000);
     }
   };
@@ -122,6 +132,14 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
         confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
       } catch {}
       onNotify('Saved to Recent Photos!', 'Top photo for bank upload — auto-cleans automatically after use.', 'success');
+      addLog({
+        type: 'saved_photo',
+        title: recipientName,
+        bank: receivingBank,
+        accountNumber: recipientNumber,
+        rawPayload,
+        detail: 'Saved to gallery / recents',
+      }).then(() => onLogAdded?.()).catch(console.warn);
     } else {
       onNotify('Save Failed', res.message, 'error');
     }
@@ -139,6 +157,14 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
       setCopiedQR(true);
       triggerHaptic('success');
       onNotify('QR Image Copied!', 'Image is ready in your clipboard to paste or upload', 'success');
+      addLog({
+        type: 'copied_details',
+        title: recipientName,
+        bank: receivingBank,
+        accountNumber: recipientNumber,
+        rawPayload,
+        detail: 'Copied QR image to clipboard',
+      }).then(() => onLogAdded?.()).catch(console.warn);
       setTimeout(() => setCopiedQR(false), 2500);
     } else {
       onNotify('Copy Failed', res.message, 'error');
@@ -212,7 +238,21 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
       console.warn('Auto copy clipboard failed:', e);
     }
 
-    // 3. Launch native banking app
+    // 3. Log dispatched payment
+    addLog({
+      type: 'dispatch_payment',
+      title: recipientName,
+      bank: receivingBank,
+      rail: parsed.rail || 'InstaPay',
+      targetApp: selectedApp.name,
+      accountNumber: recipientNumber,
+      rawPayload,
+      detail: parsed.amount
+        ? `PHP ${parseFloat(parsed.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+        : undefined,
+    }).then(() => onLogAdded?.()).catch(console.warn);
+
+    // 4. Launch native banking app
     setTimeout(() => {
       launchBankingApp(selectedApp, recipientNumber);
       onNotify(

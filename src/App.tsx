@@ -7,8 +7,12 @@ import {
   seedDefaultCardsIfEmpty,
   getSetting,
   setSetting,
+  getAllLogs,
+  deleteLog,
+  clearAllLogs,
+  addLog,
 } from './lib/storage';
-import type { QRCardItem } from './types/qr';
+import type { QRCardItem, ActivityLogItem } from './types/qr';
 import { Header } from './components/Header';
 import { CategoryFilter } from './components/CategoryFilter';
 import type { FilterCategory } from './components/CategoryFilter';
@@ -18,6 +22,7 @@ import { PaymentRoutingSheet } from './components/PaymentRoutingSheet';
 import { parseQRPhPayload } from './lib/emvcoParser';
 import { AddQRModal } from './components/AddQRModal';
 import { ScanToPayModal } from './components/ScanToPayModal';
+import { LogsView } from './components/LogsView';
 import { ConfigView } from './components/ConfigView';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
@@ -27,6 +32,7 @@ import type { NavTab } from './components/BottomNav';
 
 export function App() {
   const [cards, setCards] = useState<QRCardItem[]>([]);
+  const [logs, setLogs] = useState<ActivityLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentFilter, setCurrentFilter] = useState<FilterCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +65,15 @@ export function App() {
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const loadLogsData = useCallback(async () => {
+    try {
+      const loadedLogs = await getAllLogs();
+      setLogs(loadedLogs);
+    } catch (err) {
+      console.error('Failed to load logs:', err);
+    }
   }, []);
 
   // Initial load: IndexedDB & Settings
@@ -96,12 +111,14 @@ export function App() {
 
       const savedMask = await getSetting('privacy_mask', true);
       setPrivacyMask(savedMask);
+
+      await loadLogsData();
     } catch (err) {
       console.error('Failed to load cards:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadLogsData]);
 
   useEffect(() => {
     // Check if biometric lock is required
@@ -119,6 +136,12 @@ export function App() {
     }
     loadCardsData();
   }, [loadCardsData]);
+
+  useEffect(() => {
+    if (currentTab === 'logs') {
+      loadLogsData();
+    }
+  }, [currentTab, loadLogsData]);
 
   // Modal History Stack Manager (Supports Android hardware / system Back button)
   const openModal = useCallback((type: string) => {
@@ -208,11 +231,21 @@ export function App() {
   };
 
   const handleSaveCard = async (card: QRCardItem) => {
+    const isEdit = Boolean(editingCard);
     await saveCard(card);
     await loadCardsData();
+    await addLog({
+      type: isEdit ? 'card_updated' : 'card_added',
+      title: card.accountName,
+      bank: (card.bankCustomName || card.bank).toUpperCase(),
+      accountNumber: card.accountNumber,
+      rawPayload: card.rawPayload,
+      detail: isEdit ? 'Updated card details in vault' : 'Added new card to vault',
+    });
+    await loadLogsData();
     triggerHaptic('success');
     addToast(
-      editingCard ? 'Card Updated!' : 'Card Added to Wallet!',
+      isEdit ? 'Card Updated!' : 'Card Added to Wallet!',
       `${card.accountName} (${card.bank.toUpperCase()})`,
       'success'
     );
@@ -223,12 +256,54 @@ export function App() {
     const cardToDelete = cards.find((c) => c.id === id);
     await deleteCard(id);
     await loadCardsData();
+    if (cardToDelete) {
+      await addLog({
+        type: 'card_deleted',
+        title: cardToDelete.accountName,
+        bank: (cardToDelete.bankCustomName || cardToDelete.bank).toUpperCase(),
+        accountNumber: cardToDelete.accountNumber,
+        detail: 'Removed card from vault',
+      });
+      await loadLogsData();
+    }
     triggerHaptic('warning');
     addToast(
       'Card Deleted',
       cardToDelete ? `${cardToDelete.accountName} removed` : undefined,
       'info'
     );
+  };
+
+  const handleDeleteLog = async (id: string) => {
+    await deleteLog(id);
+    setLogs((prev) => prev.filter((l) => l.id !== id));
+    triggerHaptic('light');
+  };
+
+  const handleClearAllLogs = async () => {
+    await clearAllLogs();
+    setLogs([]);
+    triggerHaptic('warning');
+    addToast('Logs Cleared', 'All activity entries wiped', 'info');
+  };
+
+  const handleRePayFromLog = (rawPayload: string) => {
+    const parsed = parseQRPhPayload(rawPayload);
+    setRoutingCard({
+      id: `repay_${Date.now()}`,
+      bank: (parsed.detectedBank as any) || 'other',
+      bankCustomName: parsed.bankName,
+      accountName: parsed.merchantName || 'VERIFIED QRPH PAYEE',
+      accountNumber: parsed.accountNumber || '',
+      category: 'personal',
+      rawPayload,
+      imageDataUrl: '',
+      isFavorite: false,
+      orderIndex: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    openModal('routing');
   };
 
   const handleToggleFavorite = async (id: string) => {
@@ -385,22 +460,12 @@ export function App() {
         )}
 
         {currentTab === 'logs' && (
-          <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center font-mono space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-primary-fixed">
-              <span className="material-symbols-outlined text-[28px]">receipt_long</span>
-            </div>
-            <h3 className="font-headline-md text-headline-md text-on-surface font-bold uppercase">
-              TRANSACTION LOGS // ARCHIVE
-            </h3>
-            <p className="text-xs text-outline max-w-xs font-sans leading-relaxed">
-              When you scan and dispatch QR Ph payments, transaction receipts are verified and stored locally on your device with offline cryptographic privacy.
-            </p>
-            <div className="pt-2">
-              <span className="font-label-sm text-label-sm text-primary-fixed bg-surface-container-high px-2 py-1 rounded border border-primary-fixed/30">
-                AUDIT SIGNATURE: SHA-256 SECURED
-              </span>
-            </div>
-          </div>
+          <LogsView
+            logs={logs}
+            onDeleteLog={handleDeleteLog}
+            onClearAllLogs={handleClearAllLogs}
+            onRePay={handleRePayFromLog}
+          />
         )}
 
         {currentTab === 'rails' && (
@@ -483,6 +548,7 @@ export function App() {
           setRoutingCard(c);
         }}
         onNotify={addToast}
+        onLogAdded={loadLogsData}
       />
 
       {/* Payment Routing Sheet from Vault Card */}
@@ -506,6 +572,7 @@ export function App() {
           onClose={closeModal}
           onSaveToWallet={handleSaveCard}
           onNotify={addToast}
+          onLogAdded={loadLogsData}
         />
       )}
 
@@ -515,6 +582,7 @@ export function App() {
         onClose={closeModal}
         onSaveToWallet={handleSaveCard}
         onNotify={addToast}
+        onLogAdded={loadLogsData}
       />
 
       {/* Add / Edit QR Modal */}
