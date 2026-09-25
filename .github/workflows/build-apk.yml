@@ -4,6 +4,11 @@ on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.28)'
+        required: false
+        default: '1.0.28'
 
 permissions:
   contents: write
@@ -41,13 +46,24 @@ jobs:
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
 
+      - name: Determine Version
+        id: versioning
+        run: |
+          VERSION="1.0.28"
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Build Android Debug APK
         run: |
           cd android
           ./gradlew assembleDebug --stacktrace
         env:
-          BUILD_NUMBER: ${{ github.run_number }}
-          BUILD_VERSION: 1.0.${{ github.run_number }}
+          BUILD_NUMBER: 28
+          BUILD_VERSION: ${{ steps.versioning.outputs.version }}
 
       - name: Rename APK for Easy Identification
         run: |
@@ -63,14 +79,16 @@ jobs:
       - name: Create GitHub Release & Attach APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: "PocketQR v1.0.${{ github.run_number }}"
+          tag_name: "v${{ steps.versioning.outputs.version }}"
+          name: "PocketQR v${{ steps.versioning.outputs.version }}"
           body: |
             ### 📱 PocketQR Android APK Release
 
             **Download the attached `PocketQR.apk` file directly on your Android phone to install!**
 
             #### ✨ What's Included:
+            * **Scaled Full-Screen Cyber Viewfinder (Edge-to-edge camera matching phone aspect ratio)**
+            * **Duplicate QR detection & prevention utility**
             * **Real Android "Open with" System Chooser**
             * **Native `PackageManager` detection for installed Philippine banking apps (GCash, Maya, RCBC, etc.)**
             * **Zero web browser sandboxing or Play Store redirection**

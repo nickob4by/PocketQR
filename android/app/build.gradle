@@ -18,8 +18,8 @@ android {
         }
     }
 
-    def appVersionCode = 100 + Integer.parseInt(System.getenv("BUILD_NUMBER") ?: "5")
-    def appVersionName = System.getenv("BUILD_VERSION") ?: "1.0.5"
+    def appVersionCode = 100 + Integer.parseInt(System.getenv("BUILD_NUMBER") ?: "28")
+    def appVersionName = System.getenv("BUILD_VERSION") ?: "1.0.28"
 
     defaultConfig {
         applicationId "ph.pocketqr.app"
