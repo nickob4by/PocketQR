@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g. 1.0.28)'
+        description: 'Release version (e.g. 1.0.29)'
         required: false
-        default: '1.0.28'
+        default: '1.0.29'
 
 permissions:
   contents: write
@@ -49,7 +49,7 @@ jobs:
       - name: Determine Version
         id: versioning
         run: |
-          VERSION="1.0.28"
+          VERSION="1.0.29"
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           elif [ -n "${{ github.event.inputs.version }}" ]; then
@@ -62,7 +62,7 @@ jobs:
           cd android
           ./gradlew assembleDebug --stacktrace
         env:
-          BUILD_NUMBER: 28
+          BUILD_NUMBER: 29
           BUILD_VERSION: ${{ steps.versioning.outputs.version }}
 
       - name: Rename APK for Easy Identification
@@ -86,14 +86,15 @@ jobs:
 
             **Download the attached `PocketQR.apk` file directly on your Android phone to install!**
 
-            #### ✨ What's Included:
-            * **Cyber Zoom Adjuster (0.6x Wide-Angle FOV, 1x Standard, 2x Tele, +/- steppers, pinch-to-zoom)**
-            * **Scaled Full-Screen Cyber Viewfinder (Edge-to-edge camera matching phone aspect ratio)**
-            * **Duplicate QR detection & prevention utility**
-            * **Real Android "Open with" System Chooser**
-            * **Native `PackageManager` detection for installed Philippine banking apps (GCash, Maya, RCBC, etc.)**
-            * **Zero web browser sandboxing or Play Store redirection**
-            * **Full offline QR Ph payment card wallet**
+            #### ✨ What's Included in v1.0.29:
+            * **Cyber Zoom Adjuster**: 0.6x Wide-Angle FOV, 1x Standard, 2x Tele, +/- steppers, and two-finger pinch-to-zoom
+            * **Dynamic Scan-to-Pay Glow**: Elevating button glow adapts in real-time to active Phosphor Colorway (Mint, Amber, Cyan)
+            * **Stealth ID Masking**: Protects sensitive account digits and ID numbers across public views with one-tap reveal toggle
+            * **Fixed Phosphor Colorway**: Pure, static color swatches in Settings that accurately show each wavelength
+            * **Scaled Full-Screen Cyber Viewfinder**: Edge-to-edge camera matching phone aspect ratio with zero side borders
+            * **Duplicate QR Detection & Warning**: Prevents duplicate QR cards from being added twice
+            * **Real Android "Open with" System Chooser**: Seamless handoff directly to installed banking apps
+            * **Full Offline QR Ph Wallet**: Zero internet required for presenting or storing payment cards
           files: ./PocketQR.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
