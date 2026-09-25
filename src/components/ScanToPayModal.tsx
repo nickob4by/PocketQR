@@ -38,6 +38,14 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
 
+  // Zoom control state (supports both hardware optical/sensor zoom and digital scaling)
+  const [zoom, setZoom] = useState<number>(1);
+  const [hardwareZoomRange, setHardwareZoomRange] = useState<{ min: number; max: number; step: number } | null>(null);
+
+  // Touch gesture pinch-to-zoom tracking
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartZoomRef = useRef<number>(1);
+
   // Scanned result routing sheet
   const [scannedResult, setScannedResult] = useState<{
     parsed: ParsedEMVCo;
@@ -67,22 +75,23 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
     setIsCameraReady(false);
     setTorchOn(false);
     setTorchSupported(false);
+    setZoom(1);
+    setHardwareZoomRange(null);
   }, []);
 
-  // Multi-tier fallback camera requester scaled for portrait mobile screens
+  // Multi-tier fallback camera requester using wide uncropped sensor FOV
   const requestMediaStream = async (targetFacing: 'environment' | 'user'): Promise<MediaStream> => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error('Camera API (navigator.mediaDevices.getUserMedia) is not supported in this browser.');
     }
 
-    // Tier 1: Portrait HD resolution matching mobile phone screens (1080x1920)
+    // Tier 1: Ideal 1080p full sensor FOV
     try {
       return await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: targetFacing },
-          width: { ideal: 1080 },
-          height: { ideal: 1920 },
-          aspectRatio: { ideal: 9 / 16 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         audio: false,
       });
@@ -90,15 +99,16 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         throw err;
       }
-      console.warn('Tier 1 portrait camera constraints failed, attempting fallback...', err);
+      console.warn('Tier 1 camera constraints failed, attempting fallback...', err);
     }
 
-    // Tier 2: Facing mode with ideal portrait aspect ratio
+    // Tier 2: 720p HD stream
     try {
       return await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: targetFacing },
-          aspectRatio: { ideal: 9 / 16 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
         audio: false,
       });
@@ -114,6 +124,59 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
       video: { facingMode: targetFacing },
       audio: false,
     });
+  };
+
+  // Apply zoom level (hardware constraint if supported + state)
+  const applyZoom = useCallback(async (newZoom: number) => {
+    const minZoom = hardwareZoomRange ? Math.min(hardwareZoomRange.min, 0.5) : 0.5;
+    const maxZoom = hardwareZoomRange ? Math.max(hardwareZoomRange.max, 3.0) : 3.0;
+    const clampedZoom = Math.min(Math.max(Number(newZoom.toFixed(1)), minZoom), maxZoom);
+
+    setZoom(clampedZoom);
+    triggerHaptic('light');
+
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (track && hardwareZoomRange && clampedZoom >= hardwareZoomRange.min) {
+      try {
+        await (track as any).applyConstraints({
+          advanced: [{ zoom: clampedZoom }],
+        });
+      } catch (err) {
+        console.warn('Hardware zoom constraint error:', err);
+      }
+    }
+  }, [hardwareZoomRange]);
+
+  const handleStepZoom = (delta: number) => {
+    applyZoom(zoom + delta);
+  };
+
+  // Pinch-to-zoom touch handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartZoomRef.current = zoom;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = dist / touchStartDistRef.current;
+      const target = touchStartZoomRef.current * factor;
+      applyZoom(Number(target.toFixed(1)));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartDistRef.current = null;
   };
 
   // Handle detection from camera or file
@@ -188,13 +251,23 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
         }
       }
 
-      // Check flashlight/torch capability
+      // Check flashlight/torch and zoom capabilities
       const track = mediaStream.getVideoTracks()[0];
-      if (track && typeof track.getCapabilities === 'function') {
-        const caps = track.getCapabilities() as any;
+      if (track && typeof (track as any).getCapabilities === 'function') {
+        const caps = (track as any).getCapabilities();
         setTorchSupported(Boolean(caps && caps.torch));
+        if (caps && caps.zoom) {
+          setHardwareZoomRange({
+            min: caps.zoom.min ?? 1,
+            max: caps.zoom.max ?? 5,
+            step: caps.zoom.step ?? 0.1,
+          });
+        } else {
+          setHardwareZoomRange(null);
+        }
       } else {
         setTorchSupported(false);
+        setHardwareZoomRange(null);
       }
 
       setIsCameraReady(true);
@@ -360,8 +433,15 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
     );
   }
 
+  const maxAllowedZoom = hardwareZoomRange ? hardwareZoomRange.max : 3.0;
+
   return (
-    <div className="fixed inset-0 z-50 w-full h-[100dvh] bg-black text-on-surface flex flex-col justify-between overflow-hidden select-none">
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="fixed inset-0 z-50 w-full h-[100dvh] bg-black text-on-surface flex flex-col justify-between overflow-hidden select-none"
+    >
       {/* Hidden Canvas for QR frame analysis */}
       <canvas ref={canvasRef} className="hidden" />
 
@@ -374,13 +454,19 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
         className="hidden"
       />
 
-      {/* LIVE CAMERA STREAM - Edge-to-Edge Full Screen (Zero Side Borders, Scaled with Phone) */}
+      {/* LIVE CAMERA STREAM - Edge-to-Edge Full Screen with Dual Zoom Engine */}
       <video
         ref={videoRef}
         playsInline
         autoPlay
         muted
-        className="fixed inset-0 w-full h-full object-cover z-0"
+        style={{
+          transform: hardwareZoomRange && zoom >= hardwareZoomRange.min
+            ? undefined
+            : `scale(${zoom})`,
+          transformOrigin: 'center center',
+        }}
+        className="fixed inset-0 w-full h-full object-cover z-0 transition-transform duration-100 ease-out"
       />
 
       {/* Camera Loading or Error State */}
@@ -627,7 +713,7 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
         </div>
 
         {/* Bottom Target Status Banner */}
-        <div className="mt-4 px-3 py-1 rounded bg-black/70 backdrop-blur-md font-mono border border-white/[0.08] text-[10px] flex items-center gap-2 shadow-lg">
+        <div className="mt-3 px-3 py-1 rounded bg-black/70 backdrop-blur-md font-mono border border-white/[0.08] text-[10px] flex items-center gap-2 shadow-lg">
           <div className="flex items-center gap-1.5 text-primary-fixed">
             <span className="material-symbols-outlined text-[14px]">qr_code_scanner</span>
             <span className="font-bold tracking-wider">QRPH SENSOR ACTIVE</span>
@@ -637,14 +723,68 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
         </div>
 
         {/* Micro Instruction Deck */}
-        <div className="mt-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/[0.08] text-white/80 font-mono text-xs flex items-center gap-1.5 shadow-md">
+        <div className="mt-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/[0.08] text-white/80 font-mono text-xs flex items-center gap-1.5 shadow-md">
           <span className="material-symbols-outlined text-[14px] text-tertiary">info</span>
           <span>POINT CAMERA AT ANY QRPH, GCASH, OR MAYA CODE</span>
         </div>
       </div>
 
-      {/* Floating Bottom Action Deck (Safe Area Inset) */}
-      <div className="relative z-10 w-full pb-safe px-4 pb-4 pt-2 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+      {/* Floating Bottom Action Deck with Cyber Zoom Adjuster */}
+      <div className="relative z-10 w-full pb-safe px-4 pb-4 pt-2 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-2.5">
+        {/* Cyber Zoom Adjuster Controls */}
+        <div className="flex flex-col items-center gap-1.5 w-full max-w-xs mx-auto select-none font-mono">
+          <div className="flex items-center justify-center gap-1.5 bg-black/85 backdrop-blur-xl px-2.5 py-1 rounded-full border border-white/[0.12] shadow-2xl">
+            {/* Zoom Out Step Button */}
+            <button
+              onClick={() => handleStepZoom(-0.2)}
+              disabled={zoom <= 0.5}
+              title="Zoom Out (-0.2x)"
+              className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white disabled:opacity-30 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">remove</span>
+            </button>
+
+            {/* Quick Preset Buttons: 0.6x (Wide/Zoom-out), 1.0x (Standard), 2.0x (Tele) */}
+            {[0.6, 1.0, 2.0].map((level) => {
+              const isSelected = Math.abs(zoom - level) < 0.08;
+              return (
+                <button
+                  key={level}
+                  onClick={() => applyZoom(level)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-primary-container text-on-primary-container shadow-[0_0_12px_var(--theme-primary-container,#00f0a0)] scale-105'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {level === 0.6 ? '0.6x' : level === 1.0 ? '1x' : '2x'}
+                </button>
+              );
+            })}
+
+            {/* Zoom In Step Button */}
+            <button
+              onClick={() => handleStepZoom(0.2)}
+              disabled={zoom >= maxAllowedZoom}
+              title="Zoom In (+0.2x)"
+              className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white disabled:opacity-30 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">add</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1 text-[10px] text-white/60 tracking-wider">
+            <span className="material-symbols-outlined text-[12px] text-primary-fixed">zoom_in</span>
+            <span className="text-primary-fixed font-bold">OPTIC MAG: {zoom.toFixed(1)}x</span>
+            {zoom < 1 && (
+              <span className="text-secondary text-[9px] font-bold uppercase tracking-wider ml-1">
+                [WIDE FOV]
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Cancel Scan Button */}
         <button
           onClick={() => {
             triggerHaptic('light');
