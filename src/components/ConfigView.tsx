@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { exportBackup, importBackup, resetToSampleCards, clearAllCards } from '../lib/storage';
 import { isBiometricsAvailable, authenticateWithBiometrics, triggerHaptic } from '../lib/security';
 import { PhotoshopColorPicker } from './PhotoshopColorPicker';
-import { getThemeMode, setThemeMode } from '../lib/colorDeriver';
 
 interface ConfigViewProps {
   cardCount: number;
@@ -19,12 +18,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   onReloadCards,
   onNotify,
 }) => {
-  // Illumination & Theme State
-  const [themeMode, setLocalThemeMode] = useState<'dark' | 'light'>(() => getThemeMode());
-  const [qrAdaptive, setQrAdaptive] = useState<boolean>(() => {
-    return localStorage.getItem('pocketqr_adaptive_qr_bg') !== 'false';
-  });
-
   // Display & Haptics Rig State
   const [crtScanline, setCrtScanline] = useState<boolean>(() => {
     return localStorage.getItem('pocketqr_crt_scanlines') === 'true';
@@ -78,27 +71,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
       document.documentElement.classList.remove('oled-deep-black');
     }
     triggerHaptic('light');
-  };
-
-  // Theme Illumination Toggle (Dark / Light Mode)
-  const handleToggleThemeMode = (mode: 'dark' | 'light') => {
-    setLocalThemeMode(mode);
-    setThemeMode(mode);
-    triggerHaptic('light');
-    onNotify('Illumination Mode', `${mode.toUpperCase()} mode engaged`, 'info');
-  };
-
-  // QR Code Background Adaptive Toggle
-  const handleToggleQrAdaptive = () => {
-    const next = !qrAdaptive;
-    setQrAdaptive(next);
-    localStorage.setItem('pocketqr_adaptive_qr_bg', next ? 'true' : 'false');
-    triggerHaptic('light');
-    onNotify(
-      'QR Code Styling',
-      next ? 'QR adapts to dark/light surfaces' : 'Classic white background locked',
-      'info'
-    );
   };
 
   // Biometrics Interlock Toggle
@@ -211,88 +183,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           <span className="font-label-sm text-label-sm text-on-surface-variant">PPU.CHIP_88</span>
         </div>
 
-        <div className="flex flex-col gap-space-xs rounded-xl bg-surface-container-low p-space-sm shadow-sm border border-outline-variant/20">
-          {/* Illumination Theme Mode (Dark / Light) */}
-          <div className="flex items-center justify-between p-space-md rounded-lg bg-surface-container border border-outline-variant/30">
-            <div className="flex items-center gap-space-md">
-              <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary-fixed flex-shrink-0">
-                <span className="material-symbols-outlined text-[22px]">
-                  {themeMode === 'light' ? 'light_mode' : 'dark_mode'}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-headline-md text-headline-md text-on-surface text-[15px] leading-tight">
-                  Illumination Mode
-                </span>
-                <span className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  {themeMode === 'light' ? 'Clean high-contrast daylight surfaces' : 'Deep OLED cyberdeck night rig'}
-                </span>
-              </div>
-            </div>
-
-            {/* Segmented Dual Mode Switch */}
-            <div className="flex items-center p-1 rounded-lg bg-surface-container-lowest border border-outline-variant/40 gap-1 font-mono text-xs font-bold shrink-0">
-              <button
-                type="button"
-                onClick={() => handleToggleThemeMode('dark')}
-                className={`px-2.5 py-1.5 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
-                  themeMode === 'dark'
-                    ? 'bg-primary-container text-on-primary-container shadow-sm'
-                    : 'text-outline hover:text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[15px]">dark_mode</span>
-                <span>DARK</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleToggleThemeMode('light')}
-                className={`px-2.5 py-1.5 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
-                  themeMode === 'light'
-                    ? 'bg-primary-container text-on-primary-container shadow-sm'
-                    : 'text-outline hover:text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[15px]">light_mode</span>
-                <span>LIGHT</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Adaptive QR Code Aesthetic Toggle */}
-          <div
-            onClick={handleToggleQrAdaptive}
-            className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer border border-outline-variant/30"
-          >
-            <div className="flex items-center gap-space-md">
-              <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary-fixed flex-shrink-0">
-                <span className="material-symbols-outlined text-[22px]">qr_code_2</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-headline-md text-headline-md text-on-surface text-[15px] leading-tight">
-                  Adaptive QR Contrast
-                </span>
-                <span className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  {qrAdaptive ? 'QR blends to dark / light surface with glowing modules' : 'Force classic white backing on all QR codes'}
-                </span>
-              </div>
-            </div>
-
-            <div
-              className={`relative w-12 h-7 rounded-full p-0.5 transition-colors flex-shrink-0 shadow-inner ${
-                qrAdaptive ? 'bg-primary-container' : 'bg-surface-container-high'
-              }`}
-            >
-              <div
-                className={`switch-knob w-6 h-6 rounded-full flex items-center justify-center shadow-md transform transition-transform duration-200 ${
-                  qrAdaptive ? 'translate-x-5 bg-on-primary-container' : 'translate-x-0 bg-surface-container-lowest'
-                }`}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${qrAdaptive ? 'bg-primary' : 'bg-outline'}`}></div>
-              </div>
-            </div>
-          </div>
-
+        <div className="flex flex-col gap-space-xs rounded-xl bg-surface-container-low p-space-sm shadow-sm border border-white/[0.06]">
           {/* CRT Scanline Filter Toggle */}
           <div
             onClick={handleToggleCrt}
@@ -381,7 +272,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           <span className="font-label-sm text-label-sm text-primary">ENCLAVE_ARMED</span>
         </div>
 
-        <div className="flex flex-col gap-space-xs rounded-xl bg-surface-container-low p-space-sm shadow-sm border border-outline-variant/20">
+        <div className="flex flex-col gap-space-xs rounded-xl bg-surface-container-low p-space-sm shadow-sm border border-white/[0.06]">
           {/* Biometric PIN / Hardware Key */}
           <div
             onClick={handleToggleBiometrics}
@@ -537,7 +428,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           <span className="font-label-sm text-label-sm text-outline">STORAGE://LOCAL</span>
         </div>
 
-        <div className="flex flex-col gap-space-sm rounded-xl bg-surface-container-low p-space-sm shadow-sm border border-outline-variant/20">
+        <div className="flex flex-col gap-space-sm rounded-xl bg-surface-container-low p-space-sm shadow-sm border border-white/[0.06]">
           {/* Backup ROM Action Button */}
           <button
             type="button"
@@ -664,7 +555,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           <span className="font-label-sm text-label-sm text-on-surface-variant">BSP-SPEC // CERT</span>
         </div>
 
-        <div className="flex flex-col gap-space-sm rounded-xl bg-surface-container-low p-space-md shadow-sm border border-outline-variant/20">
+        <div className="flex flex-col gap-space-sm rounded-xl bg-surface-container-low p-space-md shadow-sm border border-white/[0.06]">
           {/* Diagnostic Sensor Quad Grid */}
           <div className="grid grid-cols-2 gap-2">
             <div className="flex items-center justify-between p-2 rounded bg-surface-container-highest">
@@ -724,7 +615,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           </div>
 
           {/* Retro Bottom Barcode / Serial */}
-          <div className="flex items-center justify-between pt-2 px-1 border-t border-outline-variant/20">
+          <div className="flex items-center justify-between pt-2 px-1 border-t border-white/[0.06]">
             <div className="flex items-center gap-1 opacity-70">
               <div className="w-1 h-5 bg-outline"></div>
               <div className="w-0.5 h-5 bg-outline"></div>

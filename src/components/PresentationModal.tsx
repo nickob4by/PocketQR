@@ -9,7 +9,7 @@ import {
   shareQRImage,
 } from '../lib/qrImageUtils';
 import { addLog } from '../lib/storage';
-import { getQRColors, isAdaptiveQRDark, createCenterNameBadge } from '../lib/qrThemeUtils';
+import { getQRColors, createCenterNameBadge } from '../lib/qrThemeUtils';
 
 interface PresentationModalProps {
   card: QRCardItem | null;
@@ -31,7 +31,6 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   const [copiedQR, setCopiedQR] = useState(false);
   const [savedToGallery, setSavedToGallery] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [overrideClassicWhite, setOverrideClassicWhite] = useState(false);
   const wakeLockRef = useRef<any>(null);
 
   // Screen Wake Lock API to prevent screen timeout while presenting
@@ -78,8 +77,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   if (!card) return null;
 
   const bankName = (card.bankCustomName || card.bank).toUpperCase();
-  const isDark = isAdaptiveQRDark() && !overrideClassicWhite;
-  const qrColors = getQRColors(card.bank, isDark);
+  const qrColors = getQRColors(card.bank);
 
   const isStaleRoutingCode =
     card.accountNumber === '99964403' ||
@@ -225,7 +223,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
         <div className="flex-1 overflow-y-auto px-margin py-3 pb-safe flex flex-col gap-2.5 select-none font-mono">
           {/* Unified Clean Cashier Scan Card */}
           <div
-            className={`relative bg-surface-container-high p-space-md rounded-xl shadow-xl border border-outline-variant/40 flex flex-col items-center overflow-hidden transition-transform duration-300 ${
+            className={`relative bg-surface-container-high p-space-md rounded-xl shadow-xl border border-white/[0.07] flex flex-col items-center overflow-hidden transition-transform duration-300 ${
               isRotated ? 'rotate-180' : ''
             }`}
           >
@@ -233,7 +231,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
             <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#003822_1px,transparent_1px)] [background-size:6px_6px]"></div>
 
             {/* Station / Rail Pill */}
-            <div className="relative w-full flex items-center justify-between bg-surface-container-lowest text-on-surface px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
+            <div className="relative w-full flex items-center justify-between bg-surface-container-lowest text-on-surface px-space-md py-space-xs rounded-lg shadow-sm border border-white/[0.06]">
               <div className="flex items-center gap-space-xs">
                 <div className="w-4 h-4 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-bold text-[9px] font-label-sm">
                   ✓
@@ -249,9 +247,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
 
             {/* High-Fidelity Tactical QR Display */}
             <div
-              className={`relative my-space-md p-space-md rounded-xl shadow-xl flex flex-col items-center justify-center border transition-all duration-300 ${
-                isDark ? 'border-outline-variant/40 shadow-[0_0_24px_rgba(0,0,0,0.6)]' : 'border-outline-variant/20'
-              }`}
+              className="relative my-space-md p-space-md rounded-xl shadow-2xl flex flex-col items-center justify-center border border-white/[0.08]"
               style={{ backgroundColor: qrColors.bgColor }}
             >
               {card.rawPayload ? (
@@ -264,7 +260,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                   bgColor={qrColors.bgColor}
                   includeMargin={false}
                   imageSettings={{
-                    src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName, isDark),
+                    src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName, true),
                     width: 48,
                     height: 48,
                     excavate: true,
@@ -278,33 +274,6 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                 />
               )}
             </div>
-
-            {/* 1-Tap Contrast Override Toggle for POS Guns / Physical Scanners */}
-            {card.rawPayload && (
-              <div className="flex flex-col items-center gap-1 mb-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setOverrideClassicWhite((prev) => !prev);
-                  }}
-                  className="px-3.5 py-1.5 rounded-full border border-outline-variant/40 bg-surface-container-lowest text-on-surface text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer hover:bg-surface-container-high"
-                  title="Flip between Dark Cyber Mode and High-Contrast Classic White"
-                >
-                  <span className="material-symbols-outlined text-[15px] text-primary">
-                    {overrideClassicWhite ? 'dark_mode' : 'light_mode'}
-                  </span>
-                  <span>
-                    {overrideClassicWhite ? '[ 🌙 DARK CYBER QR ]' : '[ ☀️ HIGH-CONTRAST SCANNER MODE ]'}
-                  </span>
-                </button>
-                {isDark && (
-                  <span className="text-[10px] text-outline text-center">
-                    POS scanner having trouble? Tap above for classic white.
-                  </span>
-                )}
-              </div>
-            )}
 
             {/* Scan Alignment Watermark */}
             <div className="mt-space-xs flex items-center justify-between w-full px-space-xs text-[10px] text-outline">
@@ -322,7 +291,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
               </h2>
 
               {/* Mobile Target Pill with Tactile Copy Action */}
-              <div className="mt-space-xs flex items-center gap-space-xs bg-surface-container-lowest px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
+              <div className="mt-space-xs flex items-center gap-space-xs bg-surface-container-lowest px-space-md py-space-xs rounded-lg shadow-sm border border-white/[0.06]">
                 <span className="material-symbols-outlined text-[16px] text-primary">
                   smartphone
                 </span>
@@ -362,7 +331,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                 className={`font-label-md text-label-md py-2.5 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border font-bold cursor-pointer text-[11px] ${
                   savedToGallery
                     ? 'bg-primary-container/20 text-primary-fixed border-primary-fixed/40'
-                    : 'bg-surface-container-high text-on-surface border-outline-variant/30 hover:bg-surface-bright'
+                    : 'bg-surface-container-high text-on-surface border-white/[0.06] hover:bg-surface-bright'
                 }`}
               >
                 <span className="material-symbols-outlined text-[18px] text-primary">
@@ -376,7 +345,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                 className={`font-label-md text-label-md py-2.5 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border font-bold cursor-pointer text-[11px] ${
                   copiedQR
                     ? 'bg-primary-container/20 text-primary-fixed border-primary-fixed/40'
-                    : 'bg-surface-container-high text-on-surface border-outline-variant/30 hover:bg-surface-bright'
+                    : 'bg-surface-container-high text-on-surface border-white/[0.06] hover:bg-surface-bright'
                 }`}
               >
                 <span className="material-symbols-outlined text-[18px] text-secondary">
@@ -389,7 +358,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
             <div className="grid grid-cols-2 gap-space-sm">
               <button
                 onClick={handleShare}
-                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-outline-variant/30 font-bold hover:bg-surface-bright cursor-pointer text-[11px]"
+                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-white/[0.06] font-bold hover:bg-surface-bright cursor-pointer text-[11px]"
               >
                 <span className="material-symbols-outlined text-[16px] text-tertiary">share</span>
                 <span className="truncate">[ SHARE QR ]</span>
@@ -397,7 +366,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
 
               <button
                 onClick={() => setIsRotated(!isRotated)}
-                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-outline-variant/30 font-bold hover:bg-surface-bright cursor-pointer text-[11px]"
+                className="bg-surface-container-high text-on-surface font-label-md text-label-md py-2 px-space-sm rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-transform active:translate-y-0.5 border border-white/[0.06] font-bold hover:bg-surface-bright cursor-pointer text-[11px]"
               >
                 <span className="material-symbols-outlined text-[16px] text-secondary">
                   screen_rotation

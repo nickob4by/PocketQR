@@ -4,7 +4,7 @@ import type { QRCardItem } from '../types/qr';
 import { BANK_CONFIGS } from '../types/qr';
 import { parseQRPhPayload, formatAccountNumber } from '../lib/emvcoParser';
 import { triggerHaptic } from '../lib/security';
-import { getQRColors, isAdaptiveQRDark, createCenterNameBadge } from '../lib/qrThemeUtils';
+import { getQRColors, createCenterNameBadge } from '../lib/qrThemeUtils';
 
 interface QRCardProps {
   card: QRCardItem;
@@ -27,8 +27,7 @@ export const QRCard: React.FC<QRCardProps> = ({
 
   const bankConfig = BANK_CONFIGS[card.bank] || BANK_CONFIGS.other;
   const bankName = (card.bankCustomName || bankConfig.name).toUpperCase();
-  const isDark = isAdaptiveQRDark();
-  const qrColors = getQRColors(card.bank, isDark);
+  const qrColors = getQRColors(card.bank);
 
   // Dynamically extract rich details if payload exists
   const parsedData = useMemo(() => {
@@ -51,7 +50,7 @@ export const QRCard: React.FC<QRCardProps> = ({
   return (
     <div
       onClick={() => onPresent(card)}
-      className="relative bg-surface-container-high rounded-xl p-3 shadow-sm border border-outline-variant/30 active:translate-y-0.5 transition-all flex flex-col gap-2 select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-md group/card"
+      className="relative bg-surface-container-high rounded-xl p-3 shadow-sm border border-white/[0.06] active:translate-y-0.5 transition-all flex flex-col gap-2 select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-md group/card"
     >
       {/* Card Header Strip: Bank Pill, Rail Tag & Actions */}
       <div className="flex items-center justify-between">
@@ -65,7 +64,7 @@ export const QRCard: React.FC<QRCardProps> = ({
           </span>
 
           {rail && (
-            <span className="font-label-sm text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider bg-surface-container-lowest text-tertiary border border-outline-variant/30 shrink-0">
+            <span className="font-label-sm text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider bg-surface-container-lowest text-tertiary border border-white/[0.06] shrink-0">
               {rail}
             </span>
           )}
@@ -114,7 +113,7 @@ export const QRCard: React.FC<QRCardProps> = ({
                     setShowMenu(false);
                   }}
                 />
-                <div className="absolute right-0 top-full mt-1 w-32 rounded-lg bg-surface-container-lowest border border-outline-variant shadow-2xl py-1 z-30 font-label-sm text-label-sm">
+                <div className="absolute right-0 top-full mt-1 w-32 rounded-lg bg-surface-container-lowest border border-white/[0.08] shadow-2xl py-1 z-30 font-label-sm text-label-sm">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -161,7 +160,7 @@ export const QRCard: React.FC<QRCardProps> = ({
           {/* Themed Mini-QR Code with Center Badge or Fallback Icon */}
           {card.rawPayload ? (
             <div
-              className="p-1 rounded-lg border border-outline-variant/30 shadow-sm shrink-0 flex items-center justify-center group-hover/card:scale-105 transition-transform"
+              className="p-1 rounded-lg border border-white/[0.08] shadow-inner shrink-0 flex items-center justify-center group-hover/card:scale-105 transition-transform"
               style={{ backgroundColor: qrColors.bgColor }}
             >
               <QRCodeSVG
@@ -171,7 +170,7 @@ export const QRCard: React.FC<QRCardProps> = ({
                 fgColor={qrColors.fgColor}
                 bgColor={qrColors.bgColor}
                 imageSettings={{
-                  src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName, isDark),
+                  src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName, true),
                   width: 14,
                   height: 14,
                   excavate: true,
@@ -200,7 +199,7 @@ export const QRCard: React.FC<QRCardProps> = ({
             </span>
           )}
 
-          <span className="text-[10px] bg-surface-container-lowest px-1.5 py-0.5 rounded text-outline border border-outline-variant/20 font-bold">
+          <span className="text-[10px] bg-surface-container-lowest px-1.5 py-0.5 rounded text-outline border border-white/[0.06] font-bold">
             PHP
           </span>
         </div>

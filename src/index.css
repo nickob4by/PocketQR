@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root, html[data-theme="dark"], html.dark {
+:root, html, html.dark {
   color-scheme: dark;
   --color-surface: #10131a;
   --color-surface-dim: #10131a;
@@ -14,28 +14,10 @@
   --color-surface-container-highest: #32353c;
   --color-on-surface: #e0e2ec;
   --color-on-surface-variant: #b9cbbe;
-  --color-outline: #849589;
-  --color-outline-variant: #3b4a40;
+  --color-outline: #6b7080;
+  --color-outline-variant: #1e222b;
   --color-background: #10131a;
   --color-on-background: #e0e2ec;
-}
-
-html[data-theme="light"], html.light {
-  color-scheme: light;
-  --color-surface: #f7f9fc;
-  --color-surface-dim: #dadce0;
-  --color-surface-bright: #ffffff;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #edf0f5;
-  --color-surface-container: #e3e7ee;
-  --color-surface-container-high: #d9dee7;
-  --color-surface-container-highest: #cfd4de;
-  --color-on-surface: #12151b;
-  --color-on-surface-variant: #424850;
-  --color-outline: #6f7680;
-  --color-outline-variant: #bcc3cd;
-  --color-background: #f7f9fc;
-  --color-on-background: #12151b;
 }
 
 :root, html[data-colorway="MINT"] {
@@ -298,9 +280,4 @@ html.oled-deep-black .bg-surface-container-lowest {
   border: 2.5px solid #10131a;
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
   cursor: pointer;
-}
-
-/* Light mode adjustments */
-html[data-theme="light"] body.crt-scanlines::before {
-  opacity: 0.25;
 }

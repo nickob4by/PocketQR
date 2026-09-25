@@ -123,36 +123,19 @@ export interface ThemeTokens {
 const THEME_MODE_KEY = 'pocketqr_theme_mode';
 const STORAGE_KEY = 'pocketqr_custom_theme_color';
 
-export function getThemeMode(): 'dark' | 'light' {
-  const saved = localStorage.getItem(THEME_MODE_KEY);
-  return saved === 'light' ? 'light' : 'dark';
+export function getThemeMode(): 'dark' {
+  return 'dark';
 }
 
 /**
- * Derives a full suite of accessible, harmonized Material tokens from any base hex color,
- * adapting lightness and contrast for either dark mode or light mode.
+ * Derives a full suite of accessible, harmonized Material tokens from any base hex color for the cyberdeck dark theme.
  */
-export function deriveThemeTokens(baseHex: string, isLightMode = false): ThemeTokens {
+export function deriveThemeTokens(baseHex: string): ThemeTokens {
   const rgb = hexToRgb(baseHex);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-
   const sat = Math.max(50, hsl.s); // Ensure sufficient vibrance
 
-  if (isLightMode) {
-    // In light mode, primary text on light surface needs deep, rich contrast (L ≈ 32-38%)
-    return {
-      primary: hslToHex(hsl.h, Math.min(sat + 10, 95), 34),
-      primaryContainer: baseHex.toUpperCase(),
-      primaryFixed: hslToHex(hsl.h, sat, Math.min(48, hsl.l)),
-      primaryFixedDim: hslToHex(hsl.h, sat, Math.min(38, hsl.l - 5)),
-      onPrimaryContainer: hslToHex(hsl.h, Math.min(sat, 90), 12),
-      onPrimary: '#FFFFFF',
-      onPrimaryFixed: '#000000',
-      onPrimaryFixedVariant: hslToHex(hsl.h, Math.min(sat, 90), 18),
-    };
-  }
-
-  // Dark mode (Cyberdeck default)
+  // Cyberdeck Dark Mode tokens
   return {
     primary: hslToHex(hsl.h, Math.min(sat, 85), 86),
     primaryContainer: baseHex.toUpperCase(),
@@ -168,11 +151,9 @@ export function deriveThemeTokens(baseHex: string, isLightMode = false): ThemeTo
 /**
  * Injects dynamic theme CSS variables into the root HTML element and persists preference.
  */
-export function applyCustomTheme(hex: string, forcedMode?: 'dark' | 'light'): void {
+export function applyCustomTheme(hex: string): void {
   try {
-    const mode = forcedMode || getThemeMode();
-    const isLight = mode === 'light';
-    const tokens = deriveThemeTokens(hex, isLight);
+    const tokens = deriveThemeTokens(hex);
     const root = document.documentElement;
     const rgb = hexToRgb(hex);
 
@@ -190,44 +171,43 @@ export function applyCustomTheme(hex: string, forcedMode?: 'dark' | 'light'): vo
     root.style.setProperty('--theme-primary-container-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
 
     root.setAttribute('data-colorway', 'CUSTOM');
-    root.setAttribute('data-theme', mode);
-    root.classList.toggle('light', isLight);
-    root.classList.toggle('dark', !isLight);
+    root.setAttribute('data-theme', 'dark');
+    root.classList.remove('light');
+    root.classList.add('dark');
 
     localStorage.setItem(STORAGE_KEY, hex.toUpperCase());
-    localStorage.setItem(THEME_MODE_KEY, mode);
+    localStorage.removeItem(THEME_MODE_KEY);
   } catch (err) {
     console.error('Failed to apply custom theme:', err);
   }
 }
 
 /**
- * Sets and applies illumination theme mode ('dark' or 'light').
+ * Sets and applies illumination theme mode ('dark'). Kept for backward compatibility.
  */
-export function setThemeMode(mode: 'dark' | 'light'): void {
+export function setThemeMode(): void {
   const currentHex = getCurrentThemeColor();
-  applyCustomTheme(currentHex, mode);
+  applyCustomTheme(currentHex);
 }
 
-export function toggleThemeMode(): 'dark' | 'light' {
-  const nextMode = getThemeMode() === 'light' ? 'dark' : 'light';
-  setThemeMode(nextMode);
-  return nextMode;
+export function toggleThemeMode(): 'dark' {
+  setThemeMode();
+  return 'dark';
 }
 
 /**
  * Loads and restores saved theme on application launch.
  */
 export function loadSavedTheme(): string {
-  const mode = getThemeMode();
   const root = document.documentElement;
-  root.setAttribute('data-theme', mode);
-  root.classList.toggle('light', mode === 'light');
-  root.classList.toggle('dark', mode === 'dark');
+  root.setAttribute('data-theme', 'dark');
+  root.classList.remove('light');
+  root.classList.add('dark');
+  localStorage.removeItem(THEME_MODE_KEY);
 
   const savedCustom = localStorage.getItem(STORAGE_KEY);
   if (savedCustom && /^#[0-9A-Fa-f]{6}$/.test(savedCustom)) {
-    applyCustomTheme(savedCustom, mode);
+    applyCustomTheme(savedCustom);
     return savedCustom.toUpperCase();
   }
 
@@ -239,7 +219,7 @@ export function loadSavedTheme(): string {
     CYAN: '#00E1FF',
   };
   const hex = legacyMap[legacyTone] || '#00F0A0';
-  applyCustomTheme(hex, mode);
+  applyCustomTheme(hex);
   return hex;
 }
 

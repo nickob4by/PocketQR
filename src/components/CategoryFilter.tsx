@@ -72,7 +72,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   }, [filterButtons, currentFilter, onFilterChange]);
 
   return (
-    <div className="flex flex-col gap-2 p-2.5 bg-surface-container-low rounded-xl shadow-sm border border-outline-variant/30 mb-3">
+    <div className="flex flex-col gap-2 p-2.5 bg-surface-container-low rounded-xl shadow-sm border border-white/[0.06] mb-3">
       {/* Permanent Search Bar replacing "BANK CHANNEL FILTER" */}
       <div className="relative w-full">
         <span className="material-symbols-outlined text-[18px] absolute left-3 top-1/2 -translate-y-1/2 text-outline">
@@ -83,7 +83,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
           placeholder="Search payee or bank..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-lg pl-9 pr-8 py-2 text-xs font-label-md text-on-surface placeholder-outline focus:outline-none focus:border-primary-fixed transition-all"
+          className="w-full bg-surface-container-lowest border border-white/[0.08] rounded-lg pl-9 pr-8 py-2 text-xs font-label-md text-on-surface placeholder-outline focus:outline-none focus:border-primary-fixed transition-all"
         />
         {searchQuery && (
           <button
@@ -107,7 +107,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
               className={`px-3 py-1.5 font-label-sm text-label-sm rounded-lg shadow-sm active:translate-y-0.5 transition-all flex items-center gap-1.5 shrink-0 uppercase tracking-wider font-bold text-xs cursor-pointer ${
                 isActive
                   ? 'bg-primary-container text-on-primary-container font-mono shadow-[0_2px_0_0_#006843]'
-                  : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high border border-outline-variant/20'
+                  : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high border border-white/[0.06]'
               }`}
             >
               {isActive && <span className="w-1.5 h-1.5 rounded-full bg-on-primary-container"></span>}

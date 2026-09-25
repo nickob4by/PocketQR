@@ -22,7 +22,7 @@ import {
 import type { QRCardItem, BankProvider } from '../types/qr';
 import { addLog } from '../lib/storage';
 import { findDuplicateCard } from '../lib/cardUtils';
-import { getQRColors, isAdaptiveQRDark, createCenterNameBadge } from '../lib/qrThemeUtils';
+import { getQRColors, createCenterNameBadge } from '../lib/qrThemeUtils';
 
 interface PaymentRoutingSheetProps {
   parsed: ParsedEMVCo;
@@ -66,8 +66,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
   const recipientNumber = parsed.accountNumber || '';
   const receivingBank = parsed.bankName || (parsed.isQRPh ? 'QR Ph Network' : 'Bank / E-Wallet');
   const targetBank = (parsed.detectedBank || 'other') as BankProvider;
-  const isDark = isAdaptiveQRDark();
-  const qrColors = getQRColors(targetBank, isDark);
+  const qrColors = getQRColors(targetBank);
 
   const duplicateCard = React.useMemo(() => {
     if (!existingCards || existingCards.length === 0) return undefined;
@@ -375,10 +374,10 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
               </div>
 
               {/* Merchant / Payee & QR Preview Box */}
-              <div className="bg-surface-container-low p-space-sm rounded-lg flex items-center gap-3 border border-outline-variant/30">
+              <div className="bg-surface-container-low p-space-sm rounded-lg flex items-center gap-3 border border-white/[0.06]">
                 {/* QR Code Mini-Preview */}
                 <div
-                  className="w-14 h-14 p-1 rounded-md flex-shrink-0 flex items-center justify-center shadow-inner border border-outline-variant/30"
+                  className="w-14 h-14 p-1 rounded-md flex-shrink-0 flex items-center justify-center shadow-inner border border-white/[0.08]"
                   style={{ backgroundColor: qrColors.bgColor }}
                 >
                   {rawPayload ? (
@@ -389,7 +388,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
                       fgColor={qrColors.fgColor}
                       bgColor={qrColors.bgColor}
                       imageSettings={{
-                        src: createCenterNameBadge(recipientName, targetBank, undefined, isDark),
+                        src: createCenterNameBadge(recipientName, targetBank, undefined, true),
                         width: 13,
                         height: 13,
                         excavate: true,
