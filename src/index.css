@@ -2,8 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-:root, html[data-colorway="MINT"] {
+:root, html[data-theme="dark"], html.dark {
   color-scheme: dark;
+  --color-surface: #10131a;
+  --color-surface-dim: #10131a;
+  --color-surface-bright: #363941;
+  --color-surface-container-lowest: #0b0e15;
+  --color-surface-container-low: #191c22;
+  --color-surface-container: #1d2027;
+  --color-surface-container-high: #272a31;
+  --color-surface-container-highest: #32353c;
+  --color-on-surface: #e0e2ec;
+  --color-on-surface-variant: #b9cbbe;
+  --color-outline: #849589;
+  --color-outline-variant: #3b4a40;
+  --color-background: #10131a;
+  --color-on-background: #e0e2ec;
+}
+
+html[data-theme="light"], html.light {
+  color-scheme: light;
+  --color-surface: #f7f9fc;
+  --color-surface-dim: #dadce0;
+  --color-surface-bright: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #edf0f5;
+  --color-surface-container: #e3e7ee;
+  --color-surface-container-high: #d9dee7;
+  --color-surface-container-highest: #cfd4de;
+  --color-on-surface: #12151b;
+  --color-on-surface-variant: #424850;
+  --color-outline: #6f7680;
+  --color-outline-variant: #bcc3cd;
+  --color-background: #f7f9fc;
+  --color-on-background: #12151b;
+}
+
+:root, html[data-colorway="MINT"] {
   --theme-primary: #b6ffd4;
   --theme-primary-container: #00f0a0;
   --theme-primary-fixed: #4dffb2;
@@ -39,8 +74,8 @@ html[data-colorway="CYAN"] {
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #10131a;
-  color: #e0e2ec;
+  background-color: var(--color-background, #10131a);
+  color: var(--color-on-surface, #e0e2ec);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -48,6 +83,7 @@ html, body {
   min-height: 100dvh;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 main {
@@ -226,4 +262,45 @@ html.oled-deep-black body,
 html.oled-deep-black .bg-surface,
 html.oled-deep-black .bg-surface-container-lowest {
   background-color: #000000 !important;
+}
+
+/* Custom 360° Hue Slider Range Thumb */
+.hue-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  border-radius: 9px;
+  outline: none;
+}
+
+.hue-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #10131a;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.hue-slider::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+
+.hue-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #10131a;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+
+/* Light mode adjustments */
+html[data-theme="light"] body.crt-scanlines::before {
+  opacity: 0.25;
 }

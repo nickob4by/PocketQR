@@ -22,7 +22,7 @@ import {
 import type { QRCardItem, BankProvider } from '../types/qr';
 import { addLog } from '../lib/storage';
 import { findDuplicateCard } from '../lib/cardUtils';
-import { getQRModuleColor, createCenterNameBadge } from '../lib/qrThemeUtils';
+import { getQRColors, isAdaptiveQRDark, createCenterNameBadge } from '../lib/qrThemeUtils';
 
 interface PaymentRoutingSheetProps {
   parsed: ParsedEMVCo;
@@ -66,6 +66,8 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
   const recipientNumber = parsed.accountNumber || '';
   const receivingBank = parsed.bankName || (parsed.isQRPh ? 'QR Ph Network' : 'Bank / E-Wallet');
   const targetBank = (parsed.detectedBank || 'other') as BankProvider;
+  const isDark = isAdaptiveQRDark();
+  const qrColors = getQRColors(targetBank, isDark);
 
   const duplicateCard = React.useMemo(() => {
     if (!existingCards || existingCards.length === 0) return undefined;
@@ -375,16 +377,19 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
               {/* Merchant / Payee & QR Preview Box */}
               <div className="bg-surface-container-low p-space-sm rounded-lg flex items-center gap-3 border border-outline-variant/30">
                 {/* QR Code Mini-Preview */}
-                <div className="w-14 h-14 bg-white p-1 rounded-md flex-shrink-0 flex items-center justify-center shadow-inner">
+                <div
+                  className="w-14 h-14 p-1 rounded-md flex-shrink-0 flex items-center justify-center shadow-inner border border-outline-variant/30"
+                  style={{ backgroundColor: qrColors.bgColor }}
+                >
                   {rawPayload ? (
                     <QRCodeSVG
                       value={rawPayload}
                       size={48}
                       level="H"
-                      fgColor={getQRModuleColor(targetBank)}
-                      bgColor="#FFFFFF"
+                      fgColor={qrColors.fgColor}
+                      bgColor={qrColors.bgColor}
                       imageSettings={{
-                        src: createCenterNameBadge(recipientName, targetBank),
+                        src: createCenterNameBadge(recipientName, targetBank, undefined, isDark),
                         width: 13,
                         height: 13,
                         excavate: true,
@@ -393,7 +398,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
                   ) : imageDataUrl ? (
                     <img src={imageDataUrl} alt="QR" className="w-full h-full object-contain" />
                   ) : (
-                    <span className="material-symbols-outlined text-black text-[24px]">qr_code_2</span>
+                    <span className="material-symbols-outlined text-outline text-[24px]">qr_code_2</span>
                   )}
                 </div>
 

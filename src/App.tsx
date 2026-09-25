@@ -351,7 +351,10 @@ export function App() {
     return (
       <div className="min-h-screen min-h-[100dvh] bg-surface text-on-surface flex items-center justify-center p-margin font-mono safe-p">
         <div className="max-w-sm w-full p-space-lg rounded-2xl bg-surface-container border border-outline-variant/50 shadow-2xl text-center flex flex-col items-center">
-          <div className="w-14 h-14 rounded-xl bg-surface-container-high border border-primary-fixed-dim/40 flex items-center justify-center text-primary-fixed mb-space-sm shadow-[0_0_16px_rgba(0,240,160,0.3)]">
+          <div
+            className="w-14 h-14 rounded-xl bg-surface-container-high border border-primary-fixed-dim/40 flex items-center justify-center text-primary-fixed mb-space-sm"
+            style={{ boxShadow: '0 0 16px var(--theme-primary-container)' }}
+          >
             <span className="material-symbols-outlined text-[28px]">lock</span>
           </div>
 

@@ -4,7 +4,7 @@ import type { QRCardItem } from '../types/qr';
 import { BANK_CONFIGS } from '../types/qr';
 import { parseQRPhPayload, formatAccountNumber } from '../lib/emvcoParser';
 import { triggerHaptic } from '../lib/security';
-import { getQRModuleColor, createCenterNameBadge } from '../lib/qrThemeUtils';
+import { getQRColors, isAdaptiveQRDark, createCenterNameBadge } from '../lib/qrThemeUtils';
 
 interface QRCardProps {
   card: QRCardItem;
@@ -27,6 +27,8 @@ export const QRCard: React.FC<QRCardProps> = ({
 
   const bankConfig = BANK_CONFIGS[card.bank] || BANK_CONFIGS.other;
   const bankName = (card.bankCustomName || bankConfig.name).toUpperCase();
+  const isDark = isAdaptiveQRDark();
+  const qrColors = getQRColors(card.bank, isDark);
 
   // Dynamically extract rich details if payload exists
   const parsedData = useMemo(() => {
@@ -49,7 +51,7 @@ export const QRCard: React.FC<QRCardProps> = ({
   return (
     <div
       onClick={() => onPresent(card)}
-      className="relative bg-surface-container-high rounded-xl p-3 shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 active:translate-y-0.5 transition-all flex flex-col gap-2 select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-[0_2px_8px_rgba(0,240,160,0.1)] group/card"
+      className="relative bg-surface-container-high rounded-xl p-3 shadow-sm border border-outline-variant/30 active:translate-y-0.5 transition-all flex flex-col gap-2 select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-md group/card"
     >
       {/* Card Header Strip: Bank Pill, Rail Tag & Actions */}
       <div className="flex items-center justify-between">
@@ -158,15 +160,18 @@ export const QRCard: React.FC<QRCardProps> = ({
 
           {/* Themed Mini-QR Code with Center Badge or Fallback Icon */}
           {card.rawPayload ? (
-            <div className="bg-white p-1 rounded-lg border border-outline-variant/30 shadow-sm shrink-0 flex items-center justify-center group-hover/card:scale-105 transition-transform">
+            <div
+              className="p-1 rounded-lg border border-outline-variant/30 shadow-sm shrink-0 flex items-center justify-center group-hover/card:scale-105 transition-transform"
+              style={{ backgroundColor: qrColors.bgColor }}
+            >
               <QRCodeSVG
                 value={card.rawPayload}
                 size={46}
                 level="H"
-                fgColor={getQRModuleColor(card.bank)}
-                bgColor="#FFFFFF"
+                fgColor={qrColors.fgColor}
+                bgColor={qrColors.bgColor}
                 imageSettings={{
-                  src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName),
+                  src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName, isDark),
                   width: 14,
                   height: 14,
                   excavate: true,

@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 import type { BankProvider } from '../types/qr';
-import { getQRModuleColor, createCenterNameBadge } from './qrThemeUtils';
+import { getQRColors, createCenterNameBadge } from './qrThemeUtils';
 import {
   isNativeAndroid,
   saveImageToGalleryNative,
@@ -26,6 +26,7 @@ export interface QRRenderContext {
   bank?: BankProvider;
   accountName?: string;
   bankCustomName?: string;
+  isDark?: boolean;
 }
 
 /**
@@ -45,15 +46,16 @@ export async function generateQRPngDataUrl(
       canvas.width = size;
       canvas.height = size;
 
-      const fgColor = getQRModuleColor(context?.bank || 'other');
+      const isDark = context?.isDark ?? false;
+      const qrColors = getQRColors(context?.bank || 'other', isDark);
 
       await QRCode.toCanvas(canvas, rawPayload, {
         width: size,
         margin: 3,
         errorCorrectionLevel: 'H',
         color: {
-          dark: fgColor,
-          light: '#ffffff',
+          dark: qrColors.fgColor,
+          light: qrColors.bgColor,
         },
       });
 
@@ -62,7 +64,8 @@ export async function generateQRPngDataUrl(
         const badgeSvgUrl = createCenterNameBadge(
           context.accountName,
           context.bank || 'other',
-          context.bankCustomName
+          context.bankCustomName,
+          isDark
         );
 
         const badgeImg = new Image();

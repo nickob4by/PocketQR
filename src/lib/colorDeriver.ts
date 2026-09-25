@@ -110,25 +110,49 @@ export function hslToHex(h: number, s: number, l: number): string {
 }
 
 export interface ThemeTokens {
-  primary: string;                  // Light readable tint (L ≈ 86%)
-  primaryContainer: string;         // Vibrant base accent (user chosen or vibrant L ≈ 48%)
-  primaryFixed: string;             // Bright neon highlight (L ≈ 65%)
-  primaryFixedDim: string;          // Midtone accent for borders (L ≈ 44%)
-  onPrimaryContainer: string;       // Deep contrast shade for container text (L ≈ 18%)
-  onPrimary: string;                // Dark contrast for pure accent backgrounds (L ≈ 10%)
-  onPrimaryFixed: string;           // Ultra-deep contrast (L ≈ 7%)
-  onPrimaryFixedVariant: string;    // Dark midtone (L ≈ 15%)
+  primary: string;                  // Readable tint for text
+  primaryContainer: string;         // Vibrant base accent (user chosen or vibrant)
+  primaryFixed: string;             // Bright neon highlight
+  primaryFixedDim: string;          // Midtone accent for borders
+  onPrimaryContainer: string;       // Contrast shade for container text
+  onPrimary: string;                // Contrast for pure accent backgrounds
+  onPrimaryFixed: string;           // Deep contrast
+  onPrimaryFixedVariant: string;    // Midtone contrast
+}
+
+const THEME_MODE_KEY = 'pocketqr_theme_mode';
+const STORAGE_KEY = 'pocketqr_custom_theme_color';
+
+export function getThemeMode(): 'dark' | 'light' {
+  const saved = localStorage.getItem(THEME_MODE_KEY);
+  return saved === 'light' ? 'light' : 'dark';
 }
 
 /**
- * Derives a full suite of accessible, harmonized Material tokens from any base hex color.
+ * Derives a full suite of accessible, harmonized Material tokens from any base hex color,
+ * adapting lightness and contrast for either dark mode or light mode.
  */
-export function deriveThemeTokens(baseHex: string): ThemeTokens {
+export function deriveThemeTokens(baseHex: string, isLightMode = false): ThemeTokens {
   const rgb = hexToRgb(baseHex);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
   const sat = Math.max(50, hsl.s); // Ensure sufficient vibrance
 
+  if (isLightMode) {
+    // In light mode, primary text on light surface needs deep, rich contrast (L ≈ 32-38%)
+    return {
+      primary: hslToHex(hsl.h, Math.min(sat + 10, 95), 34),
+      primaryContainer: baseHex.toUpperCase(),
+      primaryFixed: hslToHex(hsl.h, sat, Math.min(48, hsl.l)),
+      primaryFixedDim: hslToHex(hsl.h, sat, Math.min(38, hsl.l - 5)),
+      onPrimaryContainer: hslToHex(hsl.h, Math.min(sat, 90), 12),
+      onPrimary: '#FFFFFF',
+      onPrimaryFixed: '#000000',
+      onPrimaryFixedVariant: hslToHex(hsl.h, Math.min(sat, 90), 18),
+    };
+  }
+
+  // Dark mode (Cyberdeck default)
   return {
     primary: hslToHex(hsl.h, Math.min(sat, 85), 86),
     primaryContainer: baseHex.toUpperCase(),
@@ -141,15 +165,16 @@ export function deriveThemeTokens(baseHex: string): ThemeTokens {
   };
 }
 
-const STORAGE_KEY = 'pocketqr_custom_theme_color';
-
 /**
  * Injects dynamic theme CSS variables into the root HTML element and persists preference.
  */
-export function applyCustomTheme(hex: string): void {
+export function applyCustomTheme(hex: string, forcedMode?: 'dark' | 'light'): void {
   try {
-    const tokens = deriveThemeTokens(hex);
+    const mode = forcedMode || getThemeMode();
+    const isLight = mode === 'light';
+    const tokens = deriveThemeTokens(hex, isLight);
     const root = document.documentElement;
+    const rgb = hexToRgb(hex);
 
     root.style.setProperty('--theme-primary', tokens.primary);
     root.style.setProperty('--theme-primary-container', tokens.primaryContainer);
@@ -160,20 +185,49 @@ export function applyCustomTheme(hex: string): void {
     root.style.setProperty('--theme-on-primary-fixed', tokens.onPrimaryFixed);
     root.style.setProperty('--theme-on-primary-fixed-variant', tokens.onPrimaryFixedVariant);
 
+    // RGB tokens for alpha shadows & glows
+    root.style.setProperty('--theme-primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+    root.style.setProperty('--theme-primary-container-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+
     root.setAttribute('data-colorway', 'CUSTOM');
+    root.setAttribute('data-theme', mode);
+    root.classList.toggle('light', isLight);
+    root.classList.toggle('dark', !isLight);
+
     localStorage.setItem(STORAGE_KEY, hex.toUpperCase());
+    localStorage.setItem(THEME_MODE_KEY, mode);
   } catch (err) {
     console.error('Failed to apply custom theme:', err);
   }
 }
 
 /**
+ * Sets and applies illumination theme mode ('dark' or 'light').
+ */
+export function setThemeMode(mode: 'dark' | 'light'): void {
+  const currentHex = getCurrentThemeColor();
+  applyCustomTheme(currentHex, mode);
+}
+
+export function toggleThemeMode(): 'dark' | 'light' {
+  const nextMode = getThemeMode() === 'light' ? 'dark' : 'light';
+  setThemeMode(nextMode);
+  return nextMode;
+}
+
+/**
  * Loads and restores saved theme on application launch.
  */
 export function loadSavedTheme(): string {
+  const mode = getThemeMode();
+  const root = document.documentElement;
+  root.setAttribute('data-theme', mode);
+  root.classList.toggle('light', mode === 'light');
+  root.classList.toggle('dark', mode === 'dark');
+
   const savedCustom = localStorage.getItem(STORAGE_KEY);
   if (savedCustom && /^#[0-9A-Fa-f]{6}$/.test(savedCustom)) {
-    applyCustomTheme(savedCustom);
+    applyCustomTheme(savedCustom, mode);
     return savedCustom.toUpperCase();
   }
 
@@ -185,7 +239,7 @@ export function loadSavedTheme(): string {
     CYAN: '#00E1FF',
   };
   const hex = legacyMap[legacyTone] || '#00F0A0';
-  applyCustomTheme(hex);
+  applyCustomTheme(hex, mode);
   return hex;
 }
 

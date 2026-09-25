@@ -214,9 +214,9 @@ export const PhotoshopColorPicker: React.FC<PhotoshopColorPickerProps> = ({
           max="360"
           value={hsl.h}
           onChange={handleHueChange}
-          className="w-full h-4 rounded-md cursor-pointer appearance-none bg-gradient-to-r from-[#ff0000] via-[#ffff00] via-[#00ff00] via-[#00ffff] via-[#0000ff] via-[#ff00ff] to-[#ff0000] border border-outline-variant/40"
+          className="hue-slider w-full cursor-pointer border border-outline-variant/40"
           style={{
-            WebkitAppearance: 'none',
+            background: 'linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)',
           }}
         />
       </div>

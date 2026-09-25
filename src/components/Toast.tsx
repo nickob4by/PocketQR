@@ -22,7 +22,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
           key={toast.id}
           className={`pointer-events-auto flex items-start justify-between gap-3 p-3.5 rounded-xl shadow-2xl border backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-200 ${
             toast.type === 'success'
-              ? 'bg-surface-container-highest/95 border-primary-fixed-dim/50 text-on-surface shadow-[0_8px_24px_rgba(0,240,160,0.2)]'
+              ? 'bg-surface-container-highest/95 border-primary-fixed-dim/50 text-on-surface shadow-lg'
               : toast.type === 'error'
               ? 'bg-surface-container-highest/95 border-error/50 text-on-surface shadow-[0_8px_24px_rgba(255,180,171,0.2)]'
               : 'bg-surface-container-highest/95 border-tertiary-fixed-dim/50 text-on-surface shadow-[0_8px_24px_rgba(71,214,255,0.2)]'

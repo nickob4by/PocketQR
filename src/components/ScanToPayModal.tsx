@@ -75,13 +75,14 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
       throw new Error('Camera API (navigator.mediaDevices.getUserMedia) is not supported in this browser.');
     }
 
-    // Tier 1: Ideal HD resolution with desired facing mode
+    // Tier 1: Portrait HD resolution with desired facing mode
     try {
       return await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: targetFacing },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1080 },
+          height: { ideal: 1920 },
+          aspectRatio: { ideal: 9 / 16 },
         },
         audio: false,
       });
@@ -93,11 +94,12 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
       console.warn('Tier 1 camera constraints failed, attempting fallback...', err);
     }
 
-    // Tier 2: Facing mode only (no resolution constraints)
+    // Tier 2: Facing mode with portrait aspect ratio
     try {
       return await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: targetFacing,
+          aspectRatio: { ideal: 9 / 16 },
         },
         audio: false,
       });
@@ -110,7 +112,7 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
 
     // Tier 3: Bare minimum video stream
     return await navigator.mediaDevices.getUserMedia({
-      video: true,
+      video: { facingMode: targetFacing },
       audio: false,
     });
   };
@@ -345,259 +347,213 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
-      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-between py-2 sm:py-4 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
-        {/* Hidden Canvas for QR frame analysis */}
-        <canvas ref={canvasRef} className="hidden" />
+    <div className="fixed inset-0 z-50 w-full h-[100dvh] bg-black text-white flex flex-col justify-between overflow-hidden select-none">
+      {/* Hidden Canvas for QR frame analysis */}
+      <canvas ref={canvasRef} className="hidden" />
 
-        {/* Hidden File Picker Fallback */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+      {/* Hidden File Picker Fallback */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
 
-        {/* Top Header Bar */}
-        <div className="flex flex-col gap-space-xs pb-2 border-b border-outline-variant/30 pt-safe">
-          <div className="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-            <div className="flex items-center gap-space-sm font-mono">
-              <span className="px-space-xs py-0.5 rounded-DEFAULT bg-surface-container-high text-primary-fixed">
-                ROM: 82%
-              </span>
-              <span className="text-outline">|</span>
-              <span className="text-tertiary tracking-widest">BAT [||||]</span>
-            </div>
-            <div className="flex items-center gap-space-xs text-primary font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
-              <span>LIVE-LINK</span>
-            </div>
-          </div>
+      {/* LIVE CAMERA STREAM - Edge-to-Edge Full Screen (Zero Side Borders) */}
+      <video
+        ref={videoRef}
+        playsInline
+        autoPlay
+        muted
+        className="fixed inset-0 w-full h-full object-cover z-0"
+      />
 
-          <div className="flex items-center justify-between mt-1">
-            <div className="flex items-center gap-space-sm">
-              <button
-                onClick={onClose}
-                aria-label="Close Viewfinder"
-                className="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-on-surface active:translate-y-0.5 transition-transform"
-              >
-                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-              </button>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-space-xs">
-                  <span className="font-headline-md text-headline-md tracking-tight text-primary-fixed uppercase font-bold">
-                    POCKET•QR
-                  </span>
-                  <span className="font-label-sm text-label-sm text-outline px-1 rounded-DEFAULT bg-surface-container-low font-mono">
-                    v1.0
-                  </span>
-                </div>
-                <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
-                  Cyber Viewfinder
-                </span>
-              </div>
-            </div>
-
+      {/* Camera Loading or Error State */}
+      {cameraError ? (
+        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 text-center z-20">
+          <span className="material-symbols-outlined text-4xl text-amber-400 mb-2">
+            warning
+          </span>
+          <span className="font-label-md text-label-md text-white font-bold font-mono">
+            OPTIC SENSOR OFFLINE
+          </span>
+          <p className="font-body-sm text-body-sm text-outline mt-1 mb-4 leading-relaxed font-sans max-w-xs">
+            {cameraError}
+          </p>
+          <div className="flex gap-2 w-full max-w-xs font-mono">
             <button
-              onClick={onClose}
-              className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container-high"
+              onClick={startCamera}
+              className="flex-1 py-2.5 bg-white/20 hover:bg-white/30 text-white font-label-sm text-label-sm rounded-lg border border-white/20 active:scale-95 transition-transform cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[18px]">close</span>
+              RETRY SENSOR
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 py-2.5 bg-primary-container text-on-primary-container font-label-sm text-label-sm rounded-lg font-bold active:scale-95 transition-transform cursor-pointer"
+            >
+              UPLOAD FILE
             </button>
           </div>
         </div>
+      ) : !isCameraReady ? (
+        <div className="absolute inset-0 bg-black flex flex-col items-center justify-center gap-2 z-10 font-mono">
+          <span className="material-symbols-outlined text-3xl text-primary-fixed animate-spin">
+            refresh
+          </span>
+          <span className="font-label-sm text-label-sm text-primary-fixed tracking-widest">
+            CALIBRATING SENSOR...
+          </span>
+        </div>
+      ) : null}
 
-        {/* Viewfinder Main Column */}
-        <div className="flex flex-col w-full gap-space-sm my-auto py-2">
-          {/* Top Hardware Telemetry Status Strip */}
-          <div className="flex items-center justify-between px-space-xs py-1 rounded-DEFAULT bg-surface-container-lowest text-on-surface-variant font-label-sm text-label-sm font-mono border border-outline-variant/20">
-            <div className="flex items-center gap-space-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
-              <span className="text-primary-fixed uppercase tracking-wider">
-                OPTIC_SENS: {facingMode === 'environment' ? 'REAR_4K' : 'FRONT_HD'}
-              </span>
-            </div>
-            <div className="flex items-center gap-space-sm text-outline">
-              <span>LAT: 14.55° N</span>
-              <span>|</span>
-              <span className="text-primary-fixed">HUD: 60FPS</span>
-            </div>
+      {/* Floating Top Controls Header (Glassmorphic, Safe Area Inset) */}
+      <div className="relative z-10 w-full pt-safe px-4 pt-3 pb-3 flex flex-col gap-2 bg-gradient-to-b from-black/85 via-black/40 to-transparent">
+        <div className="flex items-center justify-between text-xs font-mono text-outline">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+            <span className="text-primary-fixed uppercase tracking-wider font-bold">LIVE OPTIC LINK</span>
           </div>
+          <span className="tracking-widest uppercase text-white/70">
+            {facingMode === 'environment' ? 'LENS: REAR' : 'LENS: SELF'}
+          </span>
+        </div>
 
-          {/* Camera Controls Ribbon */}
-          <div className="grid grid-cols-3 gap-space-xs font-mono">
-            {/* Flash / Torch */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onClose}
+            aria-label="Close Viewfinder"
+            className="w-10 h-10 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-95 transition-transform cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+          </button>
+
+          {/* Quick Hardware Controls (Flashlight, Gallery Upload, Lens Flip) */}
+          <div className="flex items-center gap-2">
             <button
               onClick={toggleTorch}
               disabled={!torchSupported}
-              className={`flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 ${
-                !torchSupported ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-              } ${torchOn ? 'bg-secondary-fixed text-on-secondary-fixed' : 'text-on-surface'}`}
+              title="Toggle Flashlight"
+              className={`w-10 h-10 rounded-xl backdrop-blur-md border flex items-center justify-center transition-all cursor-pointer ${
+                torchOn
+                  ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.6)]'
+                  : 'bg-black/60 text-white border-white/20 hover:bg-black/80'
+              } ${!torchSupported ? 'opacity-30 cursor-not-allowed' : 'active:scale-95'}`}
             >
-              <span className="material-symbols-outlined text-[16px] text-secondary-fixed">
-                bolt
-              </span>
-              <span className="font-label-sm text-label-sm tracking-widest text-secondary-fixed font-bold">
-                FLASH: {torchOn ? 'ON' : 'OFF'}
+              <span className="material-symbols-outlined text-[20px]">
+                {torchOn ? 'flash_on' : 'flash_off'}
               </span>
             </button>
 
-            {/* Gallery Upload */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high text-on-surface hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 cursor-pointer"
+              title="Upload QR from Gallery"
+              className="w-10 h-10 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/80 active:scale-95 transition-transform cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[16px] text-tertiary">
-                photo_library
-              </span>
-              <span className="font-label-sm text-label-sm tracking-widest text-tertiary uppercase font-bold">
-                GALLERY
-              </span>
+              <span className="material-symbols-outlined text-[20px]">photo_library</span>
             </button>
 
-            {/* Flip Lens */}
             <button
               onClick={switchCamera}
-              className="flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high text-on-surface hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 cursor-pointer"
+              title="Switch Camera"
+              className="w-10 h-10 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/80 active:scale-95 transition-transform cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[16px] text-primary-fixed">
-                flip_camera_android
-              </span>
-              <span className="font-label-sm text-label-sm tracking-widest text-primary-fixed uppercase font-bold">
-                {facingMode === 'environment' ? 'LENS: S1' : 'LENS: SELF'}
-              </span>
+              <span className="material-symbols-outlined text-[20px]">flip_camera_android</span>
             </button>
           </div>
+        </div>
+      </div>
 
-          {/* Cyber Viewfinder Hardware Chassis */}
-          <div className="relative w-full aspect-[4/5] rounded-xl bg-surface-container-lowest overflow-hidden shadow-[inset_0_4px_16px_rgba(0,0,0,0.85)] border border-outline-variant/40 flex flex-col justify-between p-space-sm">
-            {/* Live Camera Stream */}
-            <video
-              ref={videoRef}
-              playsInline
-              autoPlay
-              muted
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+      {/* Center Viewport Cutout & Targeting Reticle */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center pointer-events-none px-4">
+        {/* Reticle Frame (260px square) */}
+        <div className="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center">
+          {/* Cyber Neon Corner Brackets */}
+          <div
+            className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 rounded-tl-sm"
+            style={{
+              borderColor: 'var(--theme-primary-container, #00f0a0)',
+              boxShadow: '0 0 10px var(--theme-primary-container, #00f0a0)',
+            }}
+          ></div>
+          <div
+            className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 rounded-tr-sm"
+            style={{
+              borderColor: 'var(--theme-primary-container, #00f0a0)',
+              boxShadow: '0 0 10px var(--theme-primary-container, #00f0a0)',
+            }}
+          ></div>
+          <div
+            className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 rounded-bl-sm"
+            style={{
+              borderColor: 'var(--theme-primary-container, #00f0a0)',
+              boxShadow: '0 0 10px var(--theme-primary-container, #00f0a0)',
+            }}
+          ></div>
+          <div
+            className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 rounded-br-sm"
+            style={{
+              borderColor: 'var(--theme-primary-container, #00f0a0)',
+              boxShadow: '0 0 10px var(--theme-primary-container, #00f0a0)',
+            }}
+          ></div>
 
-            {/* Camera Loading or Error State */}
-            {cameraError ? (
-              <div className="absolute inset-0 bg-surface/90 flex flex-col items-center justify-center p-6 text-center z-20">
-                <span className="material-symbols-outlined text-4xl text-secondary mb-2">
-                  warning
-                </span>
-                <span className="font-label-md text-label-md text-on-surface font-bold">
-                  OPTIC SENSOR OFFLINE
-                </span>
-                <p className="font-body-sm text-body-sm text-outline mt-1 mb-4 leading-relaxed">
-                  {cameraError}
-                </p>
-                <div className="flex gap-2 w-full">
-                  <button
-                    onClick={startCamera}
-                    className="flex-1 py-2 bg-surface-container-high text-primary-fixed font-label-sm text-label-sm rounded-lg"
-                  >
-                    RETRY SENSOR
-                  </button>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 py-2 bg-primary text-on-primary font-label-sm text-label-sm rounded-lg font-bold"
-                  >
-                    UPLOAD FILE
-                  </button>
-                </div>
-              </div>
-            ) : !isCameraReady ? (
-              <div className="absolute inset-0 bg-surface-container-lowest flex flex-col items-center justify-center gap-2 z-10 font-mono">
-                <span className="material-symbols-outlined text-2xl text-primary animate-spin">
-                  refresh
-                </span>
-                <span className="font-label-sm text-label-sm text-primary tracking-widest">
-                  CALIBRATING SENSOR...
-                </span>
-              </div>
-            ) : null}
-
-            {/* CRT Scanline & Dot-Matrix Grid Overlay */}
-            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(0,240,160,0.06)_0%,rgba(16,19,26,0.85)_100%)]"></div>
-            <div className="absolute inset-0 pointer-events-none opacity-25 bg-[linear-gradient(rgba(18,19,22,0)_50%,rgba(0,0,0,0.8)_50%)] bg-[length:100%_4px]"></div>
-
-            {/* Animated Laser Scanning Line */}
-            <div className="absolute inset-x-0 h-0.5 bg-tertiary-fixed shadow-[0_0_12px_#47d6ff,0_0_24px_#00e296] pointer-events-none animate-pulse opacity-90 top-1/2 -translate-y-1/2"></div>
-
-            {/* Top Viewport Telemetry HUD */}
-            <div className="relative z-10 flex items-center justify-between w-full font-label-sm text-label-sm text-tertiary-fixed-dim bg-surface-container-lowest/80 backdrop-blur-md px-space-xs py-1 rounded-DEFAULT font-mono border border-outline-variant/30">
-              <div className="flex items-center gap-space-xs">
-                <span className="text-tertiary-fixed tracking-widest">ISO 400</span>
-                <span className="text-outline">::</span>
-                <span className="text-tertiary-fixed tracking-widest">F/1.8</span>
-              </div>
-              <div className="flex items-center gap-space-xs text-primary-fixed">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
-                <span className="tracking-widest">
-                  {isProcessing ? 'DECODING...' : 'ACQUISITION: LOCK'}
-                </span>
-              </div>
+          {/* Center Target Box Frame */}
+          <div className="w-full h-full border border-white/20 rounded-xl flex flex-col justify-between p-3 font-mono">
+            <div className="w-full flex justify-between text-[10px] text-white/80 font-bold">
+              <span className="tracking-wider">[QRPH-TARGET]</span>
+              <span style={{ color: 'var(--theme-primary-fixed, #4dffb2)' }}>
+                {isProcessing ? 'DECODING...' : 'AIM READY'}
+              </span>
             </div>
 
-            {/* Center QR Target Reticle */}
-            <div className="relative z-10 self-center my-auto w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center pointer-events-none">
-              {/* Neon Cyan Corner Crosshairs */}
-              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-tertiary-container"></div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-tertiary-container"></div>
-              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-tertiary-container"></div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-tertiary-container"></div>
-
-              {/* Pulsing Lock Box */}
-              <div className="w-full h-full rounded-DEFAULT shadow-[0_0_18px_rgba(0,240,160,0.3)] bg-primary-container/10 flex flex-col items-center justify-between p-space-xs animate-pulse font-mono">
-                {/* Floating Corner Metric Tags */}
-                <div className="w-full flex justify-between font-label-sm text-label-sm text-primary-fixed">
-                  <span>[POS:X-294]</span>
-                  <span>[POS:Y-802]</span>
-                </div>
-                {/* Center Crosshair Target Marker */}
-                <div className="relative flex items-center justify-center w-12 h-12">
-                  <div className="absolute w-full h-[1px] bg-tertiary-container"></div>
-                  <div className="absolute h-full w-[1px] bg-tertiary-container"></div>
-                  <div className="w-3 h-3 rounded-full bg-primary-container/40 animate-ping"></div>
-                </div>
-                <div className="w-full flex justify-between font-label-sm text-label-sm text-tertiary-fixed">
-                  <span>DIST: 0.28M</span>
-                  <span>CONF: 99.8%</span>
-                </div>
-              </div>
+            {/* Center Crosshair Marker */}
+            <div className="relative self-center flex items-center justify-center w-12 h-12">
+              <div
+                className="absolute w-full h-[1px]"
+                style={{ backgroundColor: 'var(--theme-primary-container, #00f0a0)' }}
+              ></div>
+              <div
+                className="absolute h-full w-[1px]"
+                style={{ backgroundColor: 'var(--theme-primary-container, #00f0a0)' }}
+              ></div>
+              <div
+                className="w-3 h-3 rounded-full animate-ping"
+                style={{ backgroundColor: 'var(--theme-primary-container, #00f0a0)' }}
+              ></div>
             </div>
 
-            {/* Bottom Target Status Banner */}
-            <div className="relative z-10 w-full flex items-center justify-between bg-surface-container-lowest/90 backdrop-blur-md px-2 py-1.5 rounded-DEFAULT font-mono border border-outline-variant/30 text-[10px]">
-              <div className="flex items-center gap-1.5 text-primary-fixed">
-                <span className="material-symbols-outlined text-[14px]">qr_code_scanner</span>
-                <span className="font-bold tracking-wider">QRPH SENSOR ACTIVE</span>
-              </div>
-              <span className="text-secondary tracking-wider">INSTAPAY ROUTED</span>
+            <div className="w-full flex justify-between text-[9px] text-white/50 tracking-wider">
+              <span>STANDARDIZED</span>
+              <span>EMVCo 2.0</span>
             </div>
           </div>
 
-          {/* Micro Instruction Deck */}
-          <div className="flex items-center justify-between px-space-xs text-on-surface-variant font-label-sm text-label-sm font-mono">
-            <div className="flex items-center gap-space-xs">
-              <span className="material-symbols-outlined text-[14px] text-tertiary">info</span>
-              <span>POINT CAMERA AT ANY QRPH, GCASH, OR MAYA CODE</span>
-            </div>
-            <span className="text-primary-fixed uppercase tracking-wider">AUTO-DEC</span>
-          </div>
+          {/* Animated Laser Scanning Line */}
+          <div
+            className="absolute inset-x-2 h-0.5 opacity-85 pointer-events-none animate-pulse top-1/2 -translate-y-1/2"
+            style={{
+              background: 'linear-gradient(to right, transparent, var(--theme-primary-container, #00f0a0), transparent)',
+              boxShadow: '0 0 14px var(--theme-primary-container, #00f0a0)',
+            }}
+          ></div>
         </div>
 
-        {/* Bottom Bar: Cancel Button */}
-        <div className="pt-2 pb-safe border-t border-outline-variant/30 flex justify-center">
-          <button
-            onClick={onClose}
-            className="w-full py-2.5 rounded-lg bg-surface-container-high text-on-surface font-headline-md text-headline-md text-sm font-bold tracking-wide uppercase active:translate-y-0.5 transition-transform"
-          >
-            CANCEL SCAN
-          </button>
+        {/* Micro Instruction Tag below Reticle */}
+        <div className="mt-4 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-mono text-xs flex items-center gap-1.5 shadow-lg">
+          <span className="material-symbols-outlined text-[16px] text-primary-fixed">qr_code_scanner</span>
+          <span>Point camera at any QR Ph, GCash, or Maya code</span>
         </div>
+      </div>
+
+      {/* Floating Bottom Action Deck (Safe Area Inset) */}
+      <div className="relative z-10 w-full pb-safe px-4 pb-4 pt-3 flex flex-col gap-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
+        <button
+          onClick={onClose}
+          className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-98 transition-all backdrop-blur-md border border-white/20 text-white font-headline-md text-sm font-bold uppercase tracking-wider font-mono cursor-pointer"
+        >
+          CANCEL SCAN
+        </button>
       </div>
     </div>
   );

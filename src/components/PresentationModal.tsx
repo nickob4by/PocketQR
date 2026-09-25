@@ -9,7 +9,7 @@ import {
   shareQRImage,
 } from '../lib/qrImageUtils';
 import { addLog } from '../lib/storage';
-import { getQRModuleColor, createCenterNameBadge } from '../lib/qrThemeUtils';
+import { getQRColors, isAdaptiveQRDark, createCenterNameBadge } from '../lib/qrThemeUtils';
 
 interface PresentationModalProps {
   card: QRCardItem | null;
@@ -31,6 +31,7 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   const [copiedQR, setCopiedQR] = useState(false);
   const [savedToGallery, setSavedToGallery] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [overrideClassicWhite, setOverrideClassicWhite] = useState(false);
   const wakeLockRef = useRef<any>(null);
 
   // Screen Wake Lock API to prevent screen timeout while presenting
@@ -77,6 +78,8 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
   if (!card) return null;
 
   const bankName = (card.bankCustomName || card.bank).toUpperCase();
+  const isDark = isAdaptiveQRDark() && !overrideClassicWhite;
+  const qrColors = getQRColors(card.bank, isDark);
 
   const isStaleRoutingCode =
     card.accountNumber === '99964403' ||
@@ -245,18 +248,23 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
             </div>
 
             {/* High-Fidelity Tactical QR Display */}
-            <div className="relative my-space-md p-space-md bg-white rounded-xl shadow-lg flex flex-col items-center justify-center">
+            <div
+              className={`relative my-space-md p-space-md rounded-xl shadow-xl flex flex-col items-center justify-center border transition-all duration-300 ${
+                isDark ? 'border-outline-variant/40 shadow-[0_0_24px_rgba(0,0,0,0.6)]' : 'border-outline-variant/20'
+              }`}
+              style={{ backgroundColor: qrColors.bgColor }}
+            >
               {card.rawPayload ? (
                 <QRCodeSVG
                   id="presentation-qr-svg"
                   value={card.rawPayload}
                   size={220}
                   level="H"
-                  fgColor={getQRModuleColor(card.bank)}
-                  bgColor="#FFFFFF"
+                  fgColor={qrColors.fgColor}
+                  bgColor={qrColors.bgColor}
                   includeMargin={false}
                   imageSettings={{
-                    src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName),
+                    src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName, isDark),
                     width: 48,
                     height: 48,
                     excavate: true,
@@ -270,6 +278,33 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                 />
               )}
             </div>
+
+            {/* 1-Tap Contrast Override Toggle for POS Guns / Physical Scanners */}
+            {card.rawPayload && (
+              <div className="flex flex-col items-center gap-1 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setOverrideClassicWhite((prev) => !prev);
+                  }}
+                  className="px-3.5 py-1.5 rounded-full border border-outline-variant/40 bg-surface-container-lowest text-on-surface text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer hover:bg-surface-container-high"
+                  title="Flip between Dark Cyber Mode and High-Contrast Classic White"
+                >
+                  <span className="material-symbols-outlined text-[15px] text-primary">
+                    {overrideClassicWhite ? 'dark_mode' : 'light_mode'}
+                  </span>
+                  <span>
+                    {overrideClassicWhite ? '[ 🌙 DARK CYBER QR ]' : '[ ☀️ HIGH-CONTRAST SCANNER MODE ]'}
+                  </span>
+                </button>
+                {isDark && (
+                  <span className="text-[10px] text-outline text-center">
+                    POS scanner having trouble? Tap above for classic white.
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Scan Alignment Watermark */}
             <div className="mt-space-xs flex items-center justify-between w-full px-space-xs text-[10px] text-outline">
