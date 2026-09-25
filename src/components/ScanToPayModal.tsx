@@ -69,35 +69,36 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
     setTorchSupported(false);
   }, []);
 
-  // Multi-tier fallback camera requester for maximum mobile compatibility
+  // Multi-tier fallback camera requester scaled for portrait mobile screens
   const requestMediaStream = async (targetFacing: 'environment' | 'user'): Promise<MediaStream> => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error('Camera API (navigator.mediaDevices.getUserMedia) is not supported in this browser.');
     }
 
-    // Tier 1: Ideal HD resolution with desired facing mode
+    // Tier 1: Portrait HD resolution matching mobile phone screens (1080x1920)
     try {
       return await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: targetFacing },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1080 },
+          height: { ideal: 1920 },
+          aspectRatio: { ideal: 9 / 16 },
         },
         audio: false,
       });
     } catch (err: any) {
-      // If permission was explicitly denied, do not retry constraints
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         throw err;
       }
-      console.warn('Tier 1 camera constraints failed, attempting fallback...', err);
+      console.warn('Tier 1 portrait camera constraints failed, attempting fallback...', err);
     }
 
-    // Tier 2: Facing mode only (no resolution constraints)
+    // Tier 2: Facing mode with ideal portrait aspect ratio
     try {
       return await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: targetFacing,
+          facingMode: { ideal: targetFacing },
+          aspectRatio: { ideal: 9 / 16 },
         },
         audio: false,
       });
@@ -110,7 +111,7 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
 
     // Tier 3: Bare minimum video stream
     return await navigator.mediaDevices.getUserMedia({
-      video: true,
+      video: { facingMode: targetFacing },
       audio: false,
     });
   };
@@ -151,13 +152,16 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
   );
 
   // Start camera and scanning frame loop
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(async (targetFacing: 'environment' | 'user' = facingMode) => {
     stopCamera();
     setCameraError(null);
     setIsCameraReady(false);
 
+    // Short pause to guarantee OS camera lock release on mobile switching
+    await new Promise((r) => setTimeout(r, 60));
+
     try {
-      const mediaStream = await requestMediaStream(facingMode);
+      const mediaStream = await requestMediaStream(targetFacing);
       streamRef.current = mediaStream;
 
       if (videoRef.current) {
@@ -167,7 +171,6 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
         video.setAttribute('webkit-playsinline', 'true');
         video.muted = true;
 
-        // Ensure video metadata is loaded before attempting play
         if (video.readyState < 1) {
           await new Promise<void>((resolve) => {
             const onLoaded = () => {
@@ -190,17 +193,19 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
       if (track && typeof track.getCapabilities === 'function') {
         const caps = track.getCapabilities() as any;
         setTorchSupported(Boolean(caps && caps.torch));
+      } else {
+        setTorchSupported(false);
       }
 
       setIsCameraReady(true);
     } catch (err: any) {
       console.warn('Camera access error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setCameraError('Camera permission was denied. Please allow camera access in your browser settings (tap the lock or page settings icon in your address bar).');
+        setCameraError('Camera permission was denied. Please allow camera access in your browser or app settings.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setCameraError('No camera found on this device. You can upload a QR screenshot instead.');
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        setCameraError('Your camera is already in use by another app or browser tab. Please close other camera apps and tap "Try Again".');
+        setCameraError('Camera is already in use by another app or browser tab. Please close other camera apps and tap "Retry Sensor".');
       } else {
         setCameraError(`Camera error: ${err.message || 'Unable to start camera stream'}. You can upload a photo screenshot instead.`);
       }
@@ -214,7 +219,7 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
       return;
     }
 
-    startCamera();
+    startCamera(facingMode);
 
     return () => {
       stopCamera();
@@ -277,46 +282,57 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
     };
   }, [isOpen, isCameraReady, scannedResult, cameraError, handleQRDetected]);
 
-  // Torch toggle
+  // Torch toggle with active feedback and unsupported fallback notification
   const toggleTorch = async () => {
+    triggerHaptic('light');
     const track = streamRef.current?.getVideoTracks()[0];
-    if (track) {
-      try {
-        await track.applyConstraints({
-          advanced: [{ torch: !torchOn } as any],
-        });
-        setTorchOn(!torchOn);
-        triggerHaptic('light');
-      } catch (err) {
-        console.warn('Torch constraint error:', err);
-      }
+    if (!track) {
+      onNotify('Camera Inactive', 'Optic sensor is offline. Tap retry sensor.', 'info');
+      return;
+    }
+
+    try {
+      const nextState = !torchOn;
+      await (track as any).applyConstraints({
+        advanced: [{ torch: nextState }],
+      });
+      setTorchOn(nextState);
+    } catch (err: any) {
+      console.warn('Torch constraint error:', err);
+      onNotify('Flashlight Unavailable', 'Flash is not supported on this camera or device', 'info');
     }
   };
 
-  // Switch Camera front/back
+  // Switch Camera front/back with clean teardown
   const switchCamera = () => {
-    setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
     triggerHaptic('light');
+    stopCamera();
+    setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
   };
 
-  // Upload screenshot fallback
+  // Upload screenshot fallback with input reset
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      try {
-        setIsProcessing(true);
-        const dataUrl = await fileToDataUrl(file);
-        const result = await decodeQRCode(dataUrl);
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-        if (result.success && result.payload) {
-          handleQRDetected(result.payload, dataUrl);
-        } else {
-          onNotify('No QR Code Found', 'Please choose a clear QR Ph code image or screenshot', 'error');
-        }
-      } catch {
-        onNotify('Error Reading Image', 'Could not process the selected file', 'error');
-      } finally {
-        setIsProcessing(false);
+    try {
+      setIsProcessing(true);
+      triggerHaptic('light');
+      const dataUrl = await fileToDataUrl(file);
+      const result = await decodeQRCode(dataUrl);
+
+      if (result.success && result.payload) {
+        handleQRDetected(result.payload, dataUrl);
+      } else {
+        onNotify('No QR Code Found', 'Please choose a clear QR Ph code image or screenshot', 'error');
+      }
+    } catch (err) {
+      console.warn('Error reading image file:', err);
+      onNotify('Error Reading Image', 'Could not process the selected file', 'error');
+    } finally {
+      setIsProcessing(false);
+      if (e.target) {
+        e.target.value = '';
       }
     }
   };
@@ -345,261 +361,300 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-200 overflow-y-auto safe-p">
-      <div className="relative w-full min-h-screen sm:min-h-0 sm:max-w-md bg-surface text-on-surface flex flex-col justify-between py-2 sm:py-4 px-margin sm:rounded-2xl sm:border sm:border-outline-variant/50 shadow-2xl">
-        {/* Hidden Canvas for QR frame analysis */}
-        <canvas ref={canvasRef} className="hidden" />
+    <div className="fixed inset-0 z-50 w-full h-[100dvh] bg-black text-on-surface flex flex-col justify-between overflow-hidden select-none">
+      {/* Hidden Canvas for QR frame analysis */}
+      <canvas ref={canvasRef} className="hidden" />
 
-        {/* Hidden File Picker Fallback */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+      {/* Hidden File Picker Fallback */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
 
-        {/* Top Header Bar */}
-        <div className="flex flex-col gap-space-xs pb-2 border-b border-outline-variant/30 pt-safe">
-          <div className="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-            <div className="flex items-center gap-space-sm font-mono">
-              <span className="px-space-xs py-0.5 rounded-DEFAULT bg-surface-container-high text-primary-fixed">
-                ROM: 82%
-              </span>
-              <span className="text-outline">|</span>
-              <span className="text-tertiary tracking-widest">BAT [||||]</span>
-            </div>
-            <div className="flex items-center gap-space-xs text-primary font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
-              <span>LIVE-LINK</span>
-            </div>
-          </div>
+      {/* LIVE CAMERA STREAM - Edge-to-Edge Full Screen (Zero Side Borders, Scaled with Phone) */}
+      <video
+        ref={videoRef}
+        playsInline
+        autoPlay
+        muted
+        className="fixed inset-0 w-full h-full object-cover z-0"
+      />
 
-          <div className="flex items-center justify-between mt-1">
-            <div className="flex items-center gap-space-sm">
-              <button
-                onClick={onClose}
-                aria-label="Close Viewfinder"
-                className="w-8 h-8 rounded-lg bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-on-surface active:translate-y-0.5 transition-transform"
-              >
-                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-              </button>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-space-xs">
-                  <span className="font-headline-md text-headline-md tracking-tight text-primary-fixed uppercase font-bold">
-                    POCKET•QR
-                  </span>
-                  <span className="font-label-sm text-label-sm text-outline px-1 rounded-DEFAULT bg-surface-container-low font-mono">
-                    v1.0
-                  </span>
-                </div>
-                <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
-                  Cyber Viewfinder
-                </span>
-              </div>
-            </div>
-
+      {/* Camera Loading or Error State */}
+      {cameraError ? (
+        <div className="absolute inset-0 bg-surface/95 flex flex-col items-center justify-center p-6 text-center z-20">
+          <span className="material-symbols-outlined text-4xl text-amber-400 mb-2">
+            warning
+          </span>
+          <span className="font-label-md text-label-md text-on-surface font-bold font-mono">
+            OPTIC SENSOR OFFLINE
+          </span>
+          <p className="font-body-sm text-body-sm text-outline mt-1 mb-4 leading-relaxed font-sans max-w-xs">
+            {cameraError}
+          </p>
+          <div className="flex gap-2 w-full max-w-xs font-mono">
             <button
-              onClick={onClose}
-              className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container-high"
+              onClick={() => {
+                triggerHaptic('light');
+                startCamera(facingMode);
+              }}
+              className="flex-1 py-2 bg-surface-container-high hover:bg-surface-bright text-primary-fixed font-label-sm text-label-sm rounded-lg border border-white/[0.08] active:translate-y-0.5 transition-transform cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[18px]">close</span>
+              RETRY SENSOR
+            </button>
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                  fileInputRef.current.click();
+                }
+              }}
+              className="flex-1 py-2 bg-primary-container hover:opacity-90 text-on-primary-container font-label-sm text-label-sm rounded-lg font-bold active:translate-y-0.5 transition-transform cursor-pointer"
+            >
+              UPLOAD FILE
             </button>
           </div>
         </div>
+      ) : !isCameraReady ? (
+        <div className="absolute inset-0 bg-surface-container-lowest flex flex-col items-center justify-center gap-2 z-10 font-mono">
+          <span className="material-symbols-outlined text-3xl text-primary animate-spin">
+            refresh
+          </span>
+          <span className="font-label-sm text-label-sm text-primary tracking-widest">
+            CALIBRATING SENSOR...
+          </span>
+        </div>
+      ) : null}
 
-        {/* Viewfinder Main Column */}
-        <div className="flex flex-col w-full gap-space-sm my-auto py-2">
-          {/* Top Hardware Telemetry Status Strip */}
-          <div className="flex items-center justify-between px-space-xs py-1 rounded-DEFAULT bg-surface-container-lowest text-on-surface-variant font-label-sm text-label-sm font-mono border border-outline-variant/20">
-            <div className="flex items-center gap-space-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
-              <span className="text-primary-fixed uppercase tracking-wider">
-                OPTIC_SENS: {facingMode === 'environment' ? 'REAR_4K' : 'FRONT_HD'}
-              </span>
-            </div>
-            <div className="flex items-center gap-space-sm text-outline">
-              <span>LAT: 14.55° N</span>
-              <span>|</span>
-              <span className="text-primary-fixed">HUD: 60FPS</span>
-            </div>
+      {/* Full-Screen CRT Scanline & Dot-Matrix Grid Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-[1] bg-[radial-gradient(ellipse_at_center,rgba(0,240,160,0.04)_0%,rgba(11,14,21,0.75)_100%)]"></div>
+      <div className="fixed inset-0 pointer-events-none z-[1] opacity-25 bg-[linear-gradient(rgba(18,19,22,0)_50%,rgba(0,0,0,0.8)_50%)] bg-[length:100%_4px]"></div>
+
+      {/* Top Floating Cyber HUD Header Bar (Safe Area Aware) */}
+      <div className="relative z-10 w-full pt-safe px-4 pt-3 pb-2 flex flex-col gap-2 bg-gradient-to-b from-black/90 via-black/50 to-transparent">
+        {/* Status Strip: ROM & Live Link */}
+        <div className="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm font-mono">
+          <div className="flex items-center gap-2">
+            <span className="px-1.5 py-0.5 rounded bg-surface-container-high text-primary-fixed border border-white/[0.08]">
+              ROM: 82%
+            </span>
+            <span className="text-outline">|</span>
+            <span className="text-tertiary tracking-widest">BAT [||||]</span>
           </div>
-
-          {/* Camera Controls Ribbon */}
-          <div className="grid grid-cols-3 gap-space-xs font-mono">
-            {/* Flash / Torch */}
-            <button
-              onClick={toggleTorch}
-              disabled={!torchSupported}
-              className={`flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 ${
-                !torchSupported ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-              } ${torchOn ? 'bg-secondary-fixed text-on-secondary-fixed' : 'text-on-surface'}`}
-            >
-              <span className="material-symbols-outlined text-[16px] text-secondary-fixed">
-                bolt
-              </span>
-              <span className="font-label-sm text-label-sm tracking-widest text-secondary-fixed font-bold">
-                FLASH: {torchOn ? 'ON' : 'OFF'}
-              </span>
-            </button>
-
-            {/* Gallery Upload */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high text-on-surface hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px] text-tertiary">
-                photo_library
-              </span>
-              <span className="font-label-sm text-label-sm tracking-widest text-tertiary uppercase font-bold">
-                GALLERY
-              </span>
-            </button>
-
-            {/* Flip Lens */}
-            <button
-              onClick={switchCamera}
-              className="flex items-center justify-center gap-space-xs py-2 px-1 rounded-DEFAULT bg-surface-container-high text-on-surface hover:bg-surface-bright active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px] text-primary-fixed">
-                flip_camera_android
-              </span>
-              <span className="font-label-sm text-label-sm tracking-widest text-primary-fixed uppercase font-bold">
-                {facingMode === 'environment' ? 'LENS: S1' : 'LENS: SELF'}
-              </span>
-            </button>
-          </div>
-
-          {/* Cyber Viewfinder Hardware Chassis */}
-          <div className="relative w-full aspect-[4/5] rounded-xl bg-surface-container-lowest overflow-hidden shadow-[inset_0_4px_16px_rgba(0,0,0,0.85)] border border-outline-variant/40 flex flex-col justify-between p-space-sm">
-            {/* Live Camera Stream */}
-            <video
-              ref={videoRef}
-              playsInline
-              autoPlay
-              muted
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-
-            {/* Camera Loading or Error State */}
-            {cameraError ? (
-              <div className="absolute inset-0 bg-surface/90 flex flex-col items-center justify-center p-6 text-center z-20">
-                <span className="material-symbols-outlined text-4xl text-secondary mb-2">
-                  warning
-                </span>
-                <span className="font-label-md text-label-md text-on-surface font-bold">
-                  OPTIC SENSOR OFFLINE
-                </span>
-                <p className="font-body-sm text-body-sm text-outline mt-1 mb-4 leading-relaxed">
-                  {cameraError}
-                </p>
-                <div className="flex gap-2 w-full">
-                  <button
-                    onClick={startCamera}
-                    className="flex-1 py-2 bg-surface-container-high text-primary-fixed font-label-sm text-label-sm rounded-lg"
-                  >
-                    RETRY SENSOR
-                  </button>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 py-2 bg-primary text-on-primary font-label-sm text-label-sm rounded-lg font-bold"
-                  >
-                    UPLOAD FILE
-                  </button>
-                </div>
-              </div>
-            ) : !isCameraReady ? (
-              <div className="absolute inset-0 bg-surface-container-lowest flex flex-col items-center justify-center gap-2 z-10 font-mono">
-                <span className="material-symbols-outlined text-2xl text-primary animate-spin">
-                  refresh
-                </span>
-                <span className="font-label-sm text-label-sm text-primary tracking-widest">
-                  CALIBRATING SENSOR...
-                </span>
-              </div>
-            ) : null}
-
-            {/* CRT Scanline & Dot-Matrix Grid Overlay */}
-            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(0,240,160,0.06)_0%,rgba(16,19,26,0.85)_100%)]"></div>
-            <div className="absolute inset-0 pointer-events-none opacity-25 bg-[linear-gradient(rgba(18,19,22,0)_50%,rgba(0,0,0,0.8)_50%)] bg-[length:100%_4px]"></div>
-
-            {/* Animated Laser Scanning Line */}
-            <div className="absolute inset-x-0 h-0.5 bg-tertiary-fixed shadow-[0_0_12px_#47d6ff,0_0_24px_#00e296] pointer-events-none animate-pulse opacity-90 top-1/2 -translate-y-1/2"></div>
-
-            {/* Top Viewport Telemetry HUD */}
-            <div className="relative z-10 flex items-center justify-between w-full font-label-sm text-label-sm text-tertiary-fixed-dim bg-surface-container-lowest/80 backdrop-blur-md px-space-xs py-1 rounded-DEFAULT font-mono border border-outline-variant/30">
-              <div className="flex items-center gap-space-xs">
-                <span className="text-tertiary-fixed tracking-widest">ISO 400</span>
-                <span className="text-outline">::</span>
-                <span className="text-tertiary-fixed tracking-widest">F/1.8</span>
-              </div>
-              <div className="flex items-center gap-space-xs text-primary-fixed">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
-                <span className="tracking-widest">
-                  {isProcessing ? 'DECODING...' : 'ACQUISITION: LOCK'}
-                </span>
-              </div>
-            </div>
-
-            {/* Center QR Target Reticle */}
-            <div className="relative z-10 self-center my-auto w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center pointer-events-none">
-              {/* Neon Cyan Corner Crosshairs */}
-              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-tertiary-container"></div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-tertiary-container"></div>
-              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-tertiary-container"></div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-tertiary-container"></div>
-
-              {/* Pulsing Lock Box */}
-              <div className="w-full h-full rounded-DEFAULT shadow-[0_0_18px_rgba(0,240,160,0.3)] bg-primary-container/10 flex flex-col items-center justify-between p-space-xs animate-pulse font-mono">
-                {/* Floating Corner Metric Tags */}
-                <div className="w-full flex justify-between font-label-sm text-label-sm text-primary-fixed">
-                  <span>[POS:X-294]</span>
-                  <span>[POS:Y-802]</span>
-                </div>
-                {/* Center Crosshair Target Marker */}
-                <div className="relative flex items-center justify-center w-12 h-12">
-                  <div className="absolute w-full h-[1px] bg-tertiary-container"></div>
-                  <div className="absolute h-full w-[1px] bg-tertiary-container"></div>
-                  <div className="w-3 h-3 rounded-full bg-primary-container/40 animate-ping"></div>
-                </div>
-                <div className="w-full flex justify-between font-label-sm text-label-sm text-tertiary-fixed">
-                  <span>DIST: 0.28M</span>
-                  <span>CONF: 99.8%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Target Status Banner */}
-            <div className="relative z-10 w-full flex items-center justify-between bg-surface-container-lowest/90 backdrop-blur-md px-2 py-1.5 rounded-DEFAULT font-mono border border-outline-variant/30 text-[10px]">
-              <div className="flex items-center gap-1.5 text-primary-fixed">
-                <span className="material-symbols-outlined text-[14px]">qr_code_scanner</span>
-                <span className="font-bold tracking-wider">QRPH SENSOR ACTIVE</span>
-              </div>
-              <span className="text-secondary tracking-wider">INSTAPAY ROUTED</span>
-            </div>
-          </div>
-
-          {/* Micro Instruction Deck */}
-          <div className="flex items-center justify-between px-space-xs text-on-surface-variant font-label-sm text-label-sm font-mono">
-            <div className="flex items-center gap-space-xs">
-              <span className="material-symbols-outlined text-[14px] text-tertiary">info</span>
-              <span>POINT CAMERA AT ANY QRPH, GCASH, OR MAYA CODE</span>
-            </div>
-            <span className="text-primary-fixed uppercase tracking-wider">AUTO-DEC</span>
+          <div className="flex items-center gap-1.5 text-primary">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+            <span className="text-primary-fixed">LIVE-LINK</span>
           </div>
         </div>
 
-        {/* Bottom Bar: Cancel Button */}
-        <div className="pt-2 pb-safe border-t border-outline-variant/30 flex justify-center">
+        {/* Navigation & Cyber Branding Row */}
+        <div className="flex items-center justify-between mt-0.5">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                onClose();
+              }}
+              aria-label="Close Viewfinder"
+              className="w-8 h-8 rounded-lg bg-surface-container-high/80 hover:bg-surface-bright border border-white/[0.08] backdrop-blur-md flex items-center justify-center text-on-surface active:translate-y-0.5 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            </button>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="font-headline-md text-headline-md tracking-tight text-primary-fixed uppercase font-bold text-sm">
+                  POCKET•QR
+                </span>
+                <span className="font-label-sm text-label-sm text-outline px-1 rounded bg-surface-container-low font-mono border border-white/[0.06]">
+                  v1.0
+                </span>
+              </div>
+              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-mono">
+                Cyber Viewfinder
+              </span>
+            </div>
+          </div>
+
           <button
-            onClick={onClose}
-            className="w-full py-2.5 rounded-lg bg-surface-container-high text-on-surface font-headline-md text-headline-md text-sm font-bold tracking-wide uppercase active:translate-y-0.5 transition-transform"
+            onClick={() => {
+              triggerHaptic('light');
+              onClose();
+            }}
+            aria-label="Close"
+            className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-lg bg-surface-container-high/80 hover:bg-surface-bright border border-white/[0.08] backdrop-blur-md flex items-center justify-center active:translate-y-0.5 transition-all cursor-pointer"
           >
-            CANCEL SCAN
+            <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
+
+        {/* Hardware Telemetry Strip */}
+        <div className="flex items-center justify-between px-2 py-1 rounded bg-black/60 backdrop-blur-md text-on-surface-variant font-label-sm text-label-sm font-mono border border-white/[0.08]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
+            <span className="text-primary-fixed uppercase tracking-wider">
+              OPTIC_SENS: {facingMode === 'environment' ? 'REAR_4K' : 'FRONT_HD'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-outline">
+            <span>LAT: 14.55° N</span>
+            <span>|</span>
+            <span className="text-primary-fixed font-bold">
+              {isProcessing ? 'DECODING...' : 'HUD: 60FPS'}
+            </span>
+          </div>
+        </div>
+
+        {/* Camera Controls Ribbon (Flash, Gallery, Lens Flip) */}
+        <div className="grid grid-cols-3 gap-2 font-mono">
+          {/* Flash / Torch */}
+          <button
+            onClick={toggleTorch}
+            title={torchSupported ? (torchOn ? 'Turn off Flash' : 'Turn on Flash') : 'Toggle Flash'}
+            className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-lg border backdrop-blur-md transition-all shadow-[0_2px_0_0_#0b0e15] cursor-pointer active:translate-y-0.5 ${
+              torchOn
+                ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.6)] font-bold'
+                : 'bg-surface-container-high/80 hover:bg-surface-bright text-on-surface border-white/[0.08]'
+            } ${!torchSupported && isCameraReady ? 'opacity-80' : ''}`}
+          >
+            <span className={`material-symbols-outlined text-[16px] ${torchOn ? 'text-black' : 'text-amber-400'}`}>
+              bolt
+            </span>
+            <span className={`font-label-sm text-label-sm tracking-widest font-bold ${torchOn ? 'text-black' : 'text-amber-400'}`}>
+              FLASH: {torchOn ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
+          {/* Gallery Upload */}
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+                fileInputRef.current.click();
+              }
+            }}
+            title="Upload QR from Gallery"
+            className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-lg bg-surface-container-high/80 text-on-surface hover:bg-surface-bright backdrop-blur-md active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-white/[0.08] cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px] text-tertiary">
+              photo_library
+            </span>
+            <span className="font-label-sm text-label-sm tracking-widest text-tertiary uppercase font-bold">
+              GALLERY
+            </span>
+          </button>
+
+          {/* Flip Lens */}
+          <button
+            onClick={switchCamera}
+            title="Flip Front / Rear Camera"
+            className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-lg bg-surface-container-high/80 text-on-surface hover:bg-surface-bright backdrop-blur-md active:translate-y-0.5 transition-all shadow-[0_2px_0_0_#0b0e15] border border-white/[0.08] cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px] text-primary-fixed">
+              flip_camera_android
+            </span>
+            <span className="font-label-sm text-label-sm tracking-widest text-primary-fixed uppercase font-bold">
+              {facingMode === 'environment' ? 'LENS: S1' : 'LENS: SELF'}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Center Targeting Reticle Deck (Full Phone Screen Center, Zero Side Constraints) */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center pointer-events-none px-4">
+        {/* Reticle Frame */}
+        <div className="relative w-60 h-60 sm:w-68 sm:h-68 flex items-center justify-center">
+          {/* Neon Corner Brackets */}
+          <div
+            className="absolute -top-1 -left-1 w-7 h-7 border-t-2 border-l-2 rounded-tl-sm"
+            style={{ borderColor: 'var(--theme-primary-container, #00f0a0)' }}
+          ></div>
+          <div
+            className="absolute -top-1 -right-1 w-7 h-7 border-t-2 border-r-2 rounded-tr-sm"
+            style={{ borderColor: 'var(--theme-primary-container, #00f0a0)' }}
+          ></div>
+          <div
+            className="absolute -bottom-1 -left-1 w-7 h-7 border-b-2 border-l-2 rounded-bl-sm"
+            style={{ borderColor: 'var(--theme-primary-container, #00f0a0)' }}
+          ></div>
+          <div
+            className="absolute -bottom-1 -right-1 w-7 h-7 border-b-2 border-r-2 rounded-br-sm"
+            style={{ borderColor: 'var(--theme-primary-container, #00f0a0)' }}
+          ></div>
+
+          {/* Pulsing Lock Box */}
+          <div className="w-full h-full rounded-xl shadow-[0_0_18px_rgba(0,240,160,0.25)] bg-black/30 backdrop-blur-[2px] border border-white/[0.1] flex flex-col items-center justify-between p-3 animate-pulse font-mono">
+            {/* Floating Corner Metric Tags */}
+            <div className="w-full flex justify-between font-label-sm text-label-sm text-primary-fixed">
+              <span>[POS:X-294]</span>
+              <span>[POS:Y-802]</span>
+            </div>
+
+            {/* Center Crosshair Target Marker */}
+            <div className="relative flex items-center justify-center w-12 h-12">
+              <div
+                className="absolute w-full h-[1px]"
+                style={{ backgroundColor: 'var(--theme-primary-container, #00f0a0)' }}
+              ></div>
+              <div
+                className="absolute h-full w-[1px]"
+                style={{ backgroundColor: 'var(--theme-primary-container, #00f0a0)' }}
+              ></div>
+              <div
+                className="w-3.5 h-3.5 rounded-full animate-ping"
+                style={{ backgroundColor: 'var(--theme-primary-container, #00f0a0)' }}
+              ></div>
+            </div>
+
+            <div className="w-full flex justify-between font-label-sm text-label-sm text-tertiary-fixed">
+              <span>DIST: 0.28M</span>
+              <span>CONF: 99.8%</span>
+            </div>
+          </div>
+
+          {/* Animated Laser Scanning Line */}
+          <div
+            className="absolute inset-x-1 h-0.5 opacity-90 pointer-events-none animate-pulse top-1/2 -translate-y-1/2"
+            style={{
+              background: 'linear-gradient(to right, transparent, var(--theme-primary-container, #00f0a0), transparent)',
+              boxShadow: '0 0 14px var(--theme-primary-container, #00f0a0)',
+            }}
+          ></div>
+        </div>
+
+        {/* Bottom Target Status Banner */}
+        <div className="mt-4 px-3 py-1 rounded bg-black/70 backdrop-blur-md font-mono border border-white/[0.08] text-[10px] flex items-center gap-2 shadow-lg">
+          <div className="flex items-center gap-1.5 text-primary-fixed">
+            <span className="material-symbols-outlined text-[14px]">qr_code_scanner</span>
+            <span className="font-bold tracking-wider">QRPH SENSOR ACTIVE</span>
+          </div>
+          <span className="text-outline">::</span>
+          <span className="text-secondary tracking-wider">INSTAPAY ROUTED</span>
+        </div>
+
+        {/* Micro Instruction Deck */}
+        <div className="mt-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/[0.08] text-white/80 font-mono text-xs flex items-center gap-1.5 shadow-md">
+          <span className="material-symbols-outlined text-[14px] text-tertiary">info</span>
+          <span>POINT CAMERA AT ANY QRPH, GCASH, OR MAYA CODE</span>
+        </div>
+      </div>
+
+      {/* Floating Bottom Action Deck (Safe Area Inset) */}
+      <div className="relative z-10 w-full pb-safe px-4 pb-4 pt-2 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+        <button
+          onClick={() => {
+            triggerHaptic('light');
+            onClose();
+          }}
+          className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-headline-md text-sm font-bold tracking-wider uppercase border border-white/[0.15] backdrop-blur-md active:translate-y-0.5 transition-all cursor-pointer shadow-[0_2px_0_0_#0b0e15] font-mono"
+        >
+          CANCEL SCAN
+        </button>
       </div>
     </div>
   );
 };
-
