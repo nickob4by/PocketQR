@@ -1,4 +1,6 @@
 import QRCode from 'qrcode';
+import type { BankProvider } from '../types/qr';
+import { getQRModuleColor, createCenterNameBadge } from './qrThemeUtils';
 import {
   isNativeAndroid,
   saveImageToGalleryNative,
@@ -20,28 +22,67 @@ export function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([array], { type: mime });
 }
 
+export interface QRRenderContext {
+  bank?: BankProvider;
+  accountName?: string;
+  bankCustomName?: string;
+}
+
 /**
- * Generates a crisp, high-resolution PNG data URL for any QR payload or image.
+ * Generates a crisp, high-resolution PNG data URL for any QR payload or image,
+ * decorated with the bank's thematic foreground color and center payee name badge.
  */
 export async function generateQRPngDataUrl(
   rawPayload?: string,
   imageDataUrl?: string,
-  size = 600
+  size = 600,
+  context?: QRRenderContext
 ): Promise<string> {
   // 1. Generate directly from rawPayload if present
   if (rawPayload && rawPayload.trim().length > 0) {
     try {
-      return await QRCode.toDataURL(rawPayload, {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+
+      const fgColor = getQRModuleColor(context?.bank || 'other');
+
+      await QRCode.toCanvas(canvas, rawPayload, {
         width: size,
         margin: 3,
-        errorCorrectionLevel: 'M',
+        errorCorrectionLevel: 'H',
         color: {
-          dark: '#000000',
+          dark: fgColor,
           light: '#ffffff',
         },
       });
+
+      // Embed high-contrast center payee name badge if accountName is available
+      if (context?.accountName && context.accountName.trim().length > 0) {
+        const badgeSvgUrl = createCenterNameBadge(
+          context.accountName,
+          context.bank || 'other',
+          context.bankCustomName
+        );
+
+        const badgeImg = new Image();
+        await new Promise<void>((resolve) => {
+          badgeImg.onload = () => resolve();
+          badgeImg.onerror = () => resolve();
+          badgeImg.src = badgeSvgUrl;
+        });
+
+        const ctx = canvas.getContext('2d');
+        if (ctx && badgeImg.width > 0) {
+          const badgeSize = Math.round(size * 0.22);
+          const badgePos = Math.round((size - badgeSize) / 2);
+          ctx.drawImage(badgeImg, badgePos, badgePos, badgeSize, badgeSize);
+        }
+      }
+
+      return canvas.toDataURL('image/png');
     } catch (err) {
-      console.warn('QRCode.toDataURL failed, attempting canvas fallback:', err);
+      console.warn('QRCode.toCanvas failed, attempting fallback:', err);
     }
   }
 
@@ -87,13 +128,20 @@ export async function saveQRToGallery(options: {
   imageDataUrl?: string;
   fileName?: string;
   accountName?: string;
+  bank?: BankProvider;
+  bankCustomName?: string;
   isTemporary?: boolean;
 }): Promise<{ success: boolean; message: string }> {
   try {
     const dataUrl = await generateQRPngDataUrl(
       options.rawPayload,
       options.imageDataUrl,
-      640
+      640,
+      {
+        bank: options.bank,
+        accountName: options.accountName,
+        bankCustomName: options.bankCustomName,
+      }
     );
 
     if (!dataUrl) {
@@ -149,12 +197,20 @@ export async function copyQRImageToClipboard(options: {
   rawPayload?: string;
   imageDataUrl?: string;
   textFallback?: string;
+  accountName?: string;
+  bank?: BankProvider;
+  bankCustomName?: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
     const dataUrl = await generateQRPngDataUrl(
       options.rawPayload,
       options.imageDataUrl,
-      640
+      640,
+      {
+        bank: options.bank,
+        accountName: options.accountName,
+        bankCustomName: options.bankCustomName,
+      }
     );
 
     let copiedImage = false;
@@ -214,12 +270,20 @@ export async function shareQRImage(options: {
   imageDataUrl?: string;
   title?: string;
   text?: string;
+  accountName?: string;
+  bank?: BankProvider;
+  bankCustomName?: string;
 }): Promise<boolean> {
   try {
     const dataUrl = await generateQRPngDataUrl(
       options.rawPayload,
       options.imageDataUrl,
-      640
+      640,
+      {
+        bank: options.bank,
+        accountName: options.accountName,
+        bankCustomName: options.bankCustomName,
+      }
     );
 
     if (isNativeAndroid() && dataUrl) {

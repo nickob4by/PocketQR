@@ -29,6 +29,7 @@ import type { ToastMessage } from './components/Toast';
 import { authenticateWithBiometrics, triggerHaptic } from './lib/security';
 import { BottomNav } from './components/BottomNav';
 import type { NavTab } from './components/BottomNav';
+import { loadSavedTheme } from './lib/colorDeriver';
 
 export function App() {
   const [cards, setCards] = useState<QRCardItem[]>([]);
@@ -126,8 +127,8 @@ export function App() {
     if (bioEnabled) {
       setIsVaultLocked(true);
     }
-    const savedTone = localStorage.getItem('pocketqr_theme_tone') || 'MINT';
-    document.documentElement.setAttribute('data-colorway', savedTone);
+    // Initialize custom color tokens and colorway
+    loadSavedTheme();
     if (localStorage.getItem('pocketqr_crt_scanlines') === 'true') {
       document.body.classList.add('crt-scanlines');
     }

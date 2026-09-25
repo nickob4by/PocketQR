@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { QRCardItem } from '../types/qr';
 import { BANK_CONFIGS } from '../types/qr';
 import { parseQRPhPayload, formatAccountNumber } from '../lib/emvcoParser';
 import { triggerHaptic } from '../lib/security';
+import { getQRModuleColor, createCenterNameBadge } from '../lib/qrThemeUtils';
 
 interface QRCardProps {
   card: QRCardItem;
@@ -154,9 +156,28 @@ export const QRCard: React.FC<QRCardProps> = ({
             </span>
           </div>
 
-          <span className="material-symbols-outlined text-outline/30 group-hover/card:text-primary transition-colors text-[20px] flex-shrink-0">
-            qr_code_2
-          </span>
+          {/* Themed Mini-QR Code with Center Badge or Fallback Icon */}
+          {card.rawPayload ? (
+            <div className="bg-white p-1 rounded-lg border border-outline-variant/30 shadow-sm shrink-0 flex items-center justify-center group-hover/card:scale-105 transition-transform">
+              <QRCodeSVG
+                value={card.rawPayload}
+                size={46}
+                level="H"
+                fgColor={getQRModuleColor(card.bank)}
+                bgColor="#FFFFFF"
+                imageSettings={{
+                  src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName),
+                  width: 14,
+                  height: 14,
+                  excavate: true,
+                }}
+              />
+            </div>
+          ) : (
+            <span className="material-symbols-outlined text-outline/30 group-hover/card:text-primary transition-colors text-[24px] flex-shrink-0">
+              qr_code_2
+            </span>
+          )}
         </div>
 
         {/* Extracted Details Pill Strip */}

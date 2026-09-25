@@ -9,6 +9,7 @@ import {
   shareQRImage,
 } from '../lib/qrImageUtils';
 import { addLog } from '../lib/storage';
+import { getQRModuleColor, createCenterNameBadge } from '../lib/qrThemeUtils';
 
 interface PresentationModalProps {
   card: QRCardItem | null;
@@ -109,6 +110,8 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
       rawPayload: card.rawPayload,
       imageDataUrl: card.imageDataUrl,
       accountName: card.accountName,
+      bank: card.bank,
+      bankCustomName: card.bankCustomName,
     });
     setIsSaving(false);
 
@@ -135,6 +138,9 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
       rawPayload: card.rawPayload,
       imageDataUrl: card.imageDataUrl,
       textFallback: resolvedAccountNumber,
+      accountName: card.accountName,
+      bank: card.bank,
+      bankCustomName: card.bankCustomName,
     });
 
     if (res.success) {
@@ -162,6 +168,9 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
       imageDataUrl: card.imageDataUrl,
       title: `PocketQR - ${card.accountName} (${bankName})`,
       text: `Payee: ${card.accountName}\nBank: ${bankName}\nAccount: ${card.accountNumber}`,
+      accountName: card.accountName,
+      bank: card.bank,
+      bankCustomName: card.bankCustomName,
     });
 
     if (!shared) {
@@ -242,8 +251,16 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                   id="presentation-qr-svg"
                   value={card.rawPayload}
                   size={220}
-                  level="M"
+                  level="H"
+                  fgColor={getQRModuleColor(card.bank)}
+                  bgColor="#FFFFFF"
                   includeMargin={false}
+                  imageSettings={{
+                    src: createCenterNameBadge(card.accountName, card.bank, card.bankCustomName),
+                    width: 48,
+                    height: 48,
+                    excavate: true,
+                  }}
                 />
               ) : (
                 <img

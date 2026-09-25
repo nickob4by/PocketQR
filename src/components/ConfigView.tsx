@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { exportBackup, importBackup, resetToSampleCards, clearAllCards } from '../lib/storage';
 import { isBiometricsAvailable, authenticateWithBiometrics, triggerHaptic } from '../lib/security';
+import { PhotoshopColorPicker } from './PhotoshopColorPicker';
 
 interface ConfigViewProps {
   cardCount: number;
@@ -23,10 +24,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   });
   const [oledBlack, setOledBlack] = useState<boolean>(() => {
     return localStorage.getItem('pocketqr_oled_black') === 'true';
-  });
-
-  const [themeTone, setThemeTone] = useState<'MINT' | 'AMBER' | 'CYAN'>(() => {
-    return (localStorage.getItem('pocketqr_theme_tone') as any) || 'MINT';
   });
 
   // Security & Enclave State
@@ -73,16 +70,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
     } else {
       document.documentElement.classList.remove('oled-deep-black');
     }
-    triggerHaptic('light');
-  };
-
-
-
-  // Theme Tone Selector
-  const handleSetThemeTone = (tone: 'MINT' | 'AMBER' | 'CYAN') => {
-    setThemeTone(tone);
-    localStorage.setItem('pocketqr_theme_tone', tone);
-    document.documentElement.setAttribute('data-colorway', tone);
     triggerHaptic('light');
   };
 
@@ -268,81 +255,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
 
 
 
-          {/* Display Theme Tone Palette Selector */}
-          <div className="flex flex-col gap-space-xs p-space-md rounded-lg bg-surface-container">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">palette</span>
-                <span className="font-headline-md text-headline-md text-on-surface text-[15px]">
-                  Phosphor Colorway
-                </span>
-              </div>
-              <span className="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider">
-                {themeTone === 'MINT' ? 'MINT 520NM' : themeTone === 'AMBER' ? 'AMBER 590NM' : 'CYAN 470NM'}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              {/* Mint Theme */}
-              <button
-                type="button"
-                onClick={() => handleSetThemeTone('MINT')}
-                className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
-                  themeTone === 'MINT'
-                    ? 'bg-surface-container-highest shadow-sm'
-                    : 'bg-surface-container-high opacity-70 hover:opacity-100'
-                }`}
-              >
-                <div className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center">
-                  {themeTone === 'MINT' && (
-                    <span className="material-symbols-outlined text-[14px] text-on-primary-container font-bold">check</span>
-                  )}
-                </div>
-                <span className="font-label-sm text-label-sm text-primary-fixed text-center uppercase tracking-tight">
-                  MINT PHOSPHOR
-                </span>
-              </button>
-
-              {/* Amber Theme */}
-              <button
-                type="button"
-                onClick={() => handleSetThemeTone('AMBER')}
-                className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
-                  themeTone === 'AMBER'
-                    ? 'bg-surface-container-highest shadow-sm'
-                    : 'bg-surface-container-high opacity-70 hover:opacity-100'
-                }`}
-              >
-                <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center">
-                  {themeTone === 'AMBER' && (
-                    <span className="material-symbols-outlined text-[14px] text-on-secondary-container font-bold">check</span>
-                  )}
-                </div>
-                <span className="font-label-sm text-label-sm text-secondary-fixed text-center uppercase tracking-tight">
-                  AMBER DECK
-                </span>
-              </button>
-
-              {/* Cyan Theme */}
-              <button
-                type="button"
-                onClick={() => handleSetThemeTone('CYAN')}
-                className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
-                  themeTone === 'CYAN'
-                    ? 'bg-surface-container-highest shadow-sm'
-                    : 'bg-surface-container-high opacity-70 hover:opacity-100'
-                }`}
-              >
-                <div className="w-6 h-6 rounded-full bg-tertiary-container flex items-center justify-center">
-                  {themeTone === 'CYAN' && (
-                    <span className="material-symbols-outlined text-[14px] text-on-tertiary-container font-bold">check</span>
-                  )}
-                </div>
-                <span className="font-label-sm text-label-sm text-tertiary-fixed text-center uppercase tracking-tight">
-                  TERMINAL CYAN
-                </span>
-              </button>
-            </div>
-          </div>
+          {/* Photoshop-Style Full Spectrum Color Selector */}
+          <PhotoshopColorPicker onNotify={onNotify} />
         </div>
       </div>
 

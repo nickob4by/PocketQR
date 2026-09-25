@@ -6,7 +6,7 @@ import type { QRCardItem, BankProvider } from '../types/qr';
  */
 export function normalizeAccountNumber(num?: string): string {
   if (!num) return '';
-  let cleaned = num.replace(/[\s\-\(\)\.]/g, '');
+  let cleaned = num.replace(/[\s\-().]/g, '');
   if (cleaned.startsWith('+63')) {
     cleaned = '0' + cleaned.slice(3);
   } else if (cleaned.startsWith('63') && cleaned.length === 12) {
