@@ -21,11 +21,13 @@ import {
 } from '../lib/qrImageUtils';
 import type { QRCardItem } from '../types/qr';
 import { addLog } from '../lib/storage';
+import { findDuplicateCard } from '../lib/cardUtils';
 
 interface PaymentRoutingSheetProps {
   parsed: ParsedEMVCo;
   rawPayload: string;
   imageDataUrl?: string;
+  existingCards?: QRCardItem[];
   onClose: () => void;
   onSaveToWallet: (card: QRCardItem) => void;
   onNotify: (title: string, description?: string, type?: 'success' | 'info' | 'error') => void;
@@ -36,6 +38,7 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
   parsed,
   rawPayload,
   imageDataUrl,
+  existingCards = [],
   onClose,
   onSaveToWallet,
   onNotify,
@@ -61,6 +64,18 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
   const recipientName = parsed.merchantName || 'VERIFIED QRPH PAYEE';
   const recipientNumber = parsed.accountNumber || '';
   const receivingBank = parsed.bankName || (parsed.isQRPh ? 'QR Ph Network' : 'Bank / E-Wallet');
+
+  const duplicateCard = React.useMemo(() => {
+    if (!existingCards || existingCards.length === 0) return undefined;
+    return findDuplicateCard(
+      {
+        bank: parsed.detectedBank || 'other',
+        accountNumber: recipientNumber,
+        rawPayload,
+      },
+      existingCards
+    );
+  }, [existingCards, parsed.detectedBank, recipientNumber, rawPayload]);
 
   // Auto-copy QR image and account number to clipboard immediately when sheet mounts
   useEffect(() => {
@@ -283,18 +298,29 @@ export const PaymentRoutingSheet: React.FC<PaymentRoutingSheetProps> = ({
               </h1>
             </div>
             <button
-              onClick={handleSaveToWallet}
+              onClick={() => {
+                if (duplicateCard) {
+                  triggerHaptic('light');
+                  onNotify(
+                    'Already in Vault!',
+                    `This payee is stored as "${duplicateCard.accountName}" (${duplicateCard.bank.toUpperCase()})`,
+                    'info'
+                  );
+                  return;
+                }
+                handleSaveToWallet();
+              }}
               disabled={hasSaved}
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-label-sm text-label-sm font-bold uppercase transition-all ${
-                hasSaved
-                  ? 'bg-primary-container/20 border-primary-fixed text-primary-fixed'
+                hasSaved || duplicateCard
+                  ? 'bg-primary-container/20 border-primary-fixed text-primary-fixed cursor-pointer'
                   : 'bg-surface-container-high border-outline-variant/60 text-tertiary hover:bg-surface-bright active:translate-y-0.5 cursor-pointer'
               }`}
             >
               <span className="material-symbols-outlined text-[16px]">
-                {hasSaved ? 'bookmark_added' : 'bookmark_add'}
+                {hasSaved || duplicateCard ? 'bookmark_added' : 'bookmark_add'}
               </span>
-              <span>{hasSaved ? 'SAVED' : 'SAVE ROM'}</span>
+              <span>{hasSaved ? 'SAVED' : duplicateCard ? 'IN VAULT' : 'SAVE ROM'}</span>
             </button>
           </div>
         </header>

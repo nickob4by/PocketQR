@@ -569,6 +569,7 @@ export function App() {
           }
           rawPayload={routingCard.rawPayload || ''}
           imageDataUrl={routingCard.imageDataUrl}
+          existingCards={cards}
           onClose={closeModal}
           onSaveToWallet={handleSaveCard}
           onNotify={addToast}
@@ -579,6 +580,7 @@ export function App() {
       {/* Scan to Pay Live Camera Scanner */}
       <ScanToPayModal
         isOpen={isScanToPayOpen}
+        existingCards={cards}
         onClose={closeModal}
         onSaveToWallet={handleSaveCard}
         onNotify={addToast}
@@ -589,10 +591,15 @@ export function App() {
       <AddQRModal
         isOpen={isAddModalOpen}
         initialCard={editingCard}
+        existingCards={cards}
         cardCount={cards.length}
         onClose={closeModal}
         onSave={handleSaveCard}
         onNotify={addToast}
+        onViewExisting={(dup) => {
+          closeModal();
+          handleOpenPresentation(dup);
+        }}
       />
 
       {/* Floating Toasts */}

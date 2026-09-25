@@ -10,6 +10,7 @@ import type { QRCardItem } from '../types/qr';
 
 interface ScanToPayModalProps {
   isOpen: boolean;
+  existingCards?: QRCardItem[];
   onClose: () => void;
   onSaveToWallet: (card: QRCardItem) => void;
   onNotify: (title: string, description?: string, type?: 'success' | 'info' | 'error') => void;
@@ -18,6 +19,7 @@ interface ScanToPayModalProps {
 
 export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
   isOpen,
+  existingCards = [],
   onClose,
   onSaveToWallet,
   onNotify,
@@ -337,6 +339,7 @@ export const ScanToPayModal: React.FC<ScanToPayModalProps> = ({
         }}
         onNotify={onNotify}
         onLogAdded={onLogAdded}
+        existingCards={existingCards}
       />
     );
   }

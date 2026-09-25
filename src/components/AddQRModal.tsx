@@ -4,22 +4,27 @@ import { BANK_CONFIGS } from '../types/qr';
 import { decodeQRCode, fileToDataUrl } from '../lib/qrDecoder';
 import { parseQRPhPayload } from '../lib/emvcoParser';
 import { triggerHaptic } from '../lib/security';
+import { findDuplicateCard } from '../lib/cardUtils';
 
 interface AddQRModalProps {
   isOpen: boolean;
   initialCard?: QRCardItem | null;
+  existingCards?: QRCardItem[];
   onClose: () => void;
   onSave: (card: QRCardItem) => void;
   onNotify: (title: string, description?: string, type?: 'success' | 'info' | 'error') => void;
+  onViewExisting?: (card: QRCardItem) => void;
   cardCount?: number;
 }
 
 export const AddQRModal: React.FC<AddQRModalProps> = ({
   isOpen,
   initialCard,
+  existingCards = [],
   onClose,
   onSave,
   onNotify,
+  onViewExisting,
   cardCount = 4,
 }) => {
   const [bank, setBank] = useState<BankProvider>('gcash');
@@ -39,8 +44,23 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
   const [decodeMessage, setDecodeMessage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Real-time duplicate calculation
+  const duplicateCard = React.useMemo(() => {
+    if (!existingCards || existingCards.length === 0) return undefined;
+    return findDuplicateCard(
+      {
+        id: initialCard?.id,
+        bank,
+        accountNumber,
+        rawPayload,
+      },
+      existingCards
+    );
+  }, [existingCards, initialCard, bank, accountNumber, rawPayload]);
 
   // Initialize or populate form
   useEffect(() => {
@@ -78,6 +98,7 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
     setDecodeStatus('idle');
     setDecodeMessage('');
     setIsSaving(false);
+    setShowDuplicatePrompt(false);
   };
 
   const processImageFile = async (file: File | Blob) => {
@@ -108,12 +129,33 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
             const cfg = BANK_CONFIGS[parsed.detectedBank];
             if (cfg) setCategory(cfg.defaultCategory);
           }
-          triggerHaptic('success');
-          onNotify(
-            `${parsed.bankName || 'Bank'} ${parsed.rail || 'QR Ph'} Verified`,
-            parsed.merchantName ? `${parsed.merchantName}${parsed.city ? ` (${parsed.city})` : ''}` : 'Details auto-populated',
-            'success'
+
+          // Check duplicate immediately upon scan
+          const dup = findDuplicateCard(
+            {
+              id: initialCard?.id,
+              bank: parsed.detectedBank,
+              accountNumber: parsed.accountNumber,
+              rawPayload: result.payload,
+            },
+            existingCards
           );
+
+          if (dup) {
+            triggerHaptic('warning');
+            onNotify(
+              'Duplicate QR Detected!',
+              `Already saved in your vault as "${dup.accountName}" (${dup.bank.toUpperCase()})`,
+              'info'
+            );
+          } else {
+            triggerHaptic('success');
+            onNotify(
+              `${parsed.bankName || 'Bank'} ${parsed.rail || 'QR Ph'} Verified`,
+              parsed.merchantName ? `${parsed.merchantName}${parsed.city ? ` (${parsed.city})` : ''}` : 'Details auto-populated',
+              'success'
+            );
+          }
         } else {
           setDecodeStatus('warning');
           setDecodeMessage('RAW_QR_DETECTED');
@@ -179,24 +221,12 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
     }
   };
 
-  const handleSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-
-    if (!accountName.trim()) {
-      onNotify('Missing Payee Name', 'Please enter the registered payee or account alias', 'error');
-      return;
-    }
-
-    if (!accountNumber.trim()) {
-      onNotify('Missing Account Number', 'Please enter account or mobile number', 'error');
-      return;
-    }
-
+  const doSave = (targetId?: string) => {
     setIsSaving(true);
     triggerHaptic('success');
 
     const cardToSave: QRCardItem = {
-      id: initialCard?.id || `card-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: targetId || initialCard?.id || `card-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       bank,
       bankCustomName: bank === 'other' ? bankCustomName.trim() : undefined,
       accountName: accountName.trim(),
@@ -218,6 +248,29 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
       onClose();
       resetForm();
     }, 250);
+  };
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!accountName.trim()) {
+      onNotify('Missing Payee Name', 'Please enter the registered payee or account alias', 'error');
+      return;
+    }
+
+    if (!accountNumber.trim()) {
+      onNotify('Missing Account Number', 'Please enter account or mobile number', 'error');
+      return;
+    }
+
+    // Intercept if duplicate card detected and not currently editing that same card
+    if (duplicateCard && (!initialCard || initialCard.id !== duplicateCard.id)) {
+      triggerHaptic('warning');
+      setShowDuplicatePrompt(true);
+      return;
+    }
+
+    doSave();
   };
 
   if (!isOpen) return null;
@@ -494,6 +547,37 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
                 className="hidden"
               />
             </div>
+
+            {/* Duplicate QR Alert Banner */}
+            {duplicateCard && (
+              <div className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs flex flex-col gap-1.5 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <span className="material-symbols-outlined text-[16px] text-amber-400">warning</span>
+                    <span>DUPLICATE QR DETECTED</span>
+                  </div>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30 uppercase font-bold">
+                    {duplicateCard.bank}
+                  </span>
+                </div>
+                <p className="text-[11px] text-on-surface-variant font-sans leading-tight">
+                  This QR code or account is already registered in your vault as <strong className="text-amber-200 font-semibold">{duplicateCard.accountName}</strong>.
+                </p>
+                {onViewExisting && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onViewExisting(duplicateCard);
+                    }}
+                    className="self-start text-[10px] text-amber-400 hover:text-amber-300 underline font-bold uppercase cursor-pointer mt-0.5 flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">visibility</span>
+                    <span>VIEW EXISTING CARD IN VAULT</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Account / ROM Alias Field */}
@@ -575,6 +659,71 @@ export const AddQRModal: React.FC<AddQRModalProps> = ({
             </button>
           </div>
         </form>
+
+        {/* Duplicate Confirmation Intercept Modal */}
+        {showDuplicatePrompt && duplicateCard && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md animate-in fade-in font-mono">
+            <div className="w-full max-w-sm p-4 rounded-xl bg-surface-container-high border border-amber-500/50 shadow-2xl flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                <span className="material-symbols-outlined text-[20px]">warning</span>
+                <span>CARD ALREADY IN VAULT</span>
+              </div>
+
+              <p className="text-xs text-on-surface-variant font-sans leading-relaxed">
+                A card for <strong className="text-on-surface font-semibold">{duplicateCard.accountName}</strong> ({duplicateCard.bank.toUpperCase()}) already exists in your vault with this {rawPayload ? 'QR code' : 'account number'}. What would you like to do?
+              </p>
+
+              <div className="flex flex-col gap-2 pt-1 font-mono">
+                {onViewExisting && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDuplicatePrompt(false);
+                      onClose();
+                      onViewExisting(duplicateCard);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-lg bg-primary-container hover:bg-primary-fixed text-on-primary font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer uppercase transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">visibility</span>
+                    <span>VIEW EXISTING CARD</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDuplicatePrompt(false);
+                    doSave(duplicateCard.id);
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-surface-container text-on-surface border border-outline-variant/40 hover:bg-surface-bright font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer uppercase transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">update</span>
+                  <span>OVERWRITE / UPDATE EXISTING</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDuplicatePrompt(false);
+                    doSave();
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-surface-container-low text-outline hover:text-on-surface text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer uppercase transition-colors border border-outline-variant/20"
+                >
+                  <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                  <span>SAVE AS DUPLICATE ANYWAY</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowDuplicatePrompt(false)}
+                  className="w-full py-1 text-center text-xs text-outline hover:text-on-surface cursor-pointer mt-1 font-sans"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
