@@ -288,16 +288,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                 onClick={() => handleSetThemeTone('MINT')}
                 className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
                   themeTone === 'MINT'
-                    ? 'bg-surface-container-highest shadow-sm'
+                    ? 'bg-surface-container-highest shadow-sm ring-1 ring-[#00f0a0]/40'
                     : 'bg-surface-container-high opacity-70 hover:opacity-100'
                 }`}
               >
-                <div className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-[#00f0a0] flex items-center justify-center shadow-sm">
                   {themeTone === 'MINT' && (
-                    <span className="material-symbols-outlined text-[14px] text-on-primary-container font-bold">check</span>
+                    <span className="material-symbols-outlined text-[14px] text-[#006843] font-bold">check</span>
                   )}
                 </div>
-                <span className="font-label-sm text-label-sm text-primary-fixed text-center uppercase tracking-tight">
+                <span className="font-label-sm text-label-sm text-[#4dffb2] text-center uppercase tracking-tight">
                   MINT PHOSPHOR
                 </span>
               </button>
@@ -308,16 +308,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                 onClick={() => handleSetThemeTone('AMBER')}
                 className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
                   themeTone === 'AMBER'
-                    ? 'bg-surface-container-highest shadow-sm'
+                    ? 'bg-surface-container-highest shadow-sm ring-1 ring-[#feb700]/40'
                     : 'bg-surface-container-high opacity-70 hover:opacity-100'
                 }`}
               >
-                <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-[#feb700] flex items-center justify-center shadow-sm">
                   {themeTone === 'AMBER' && (
-                    <span className="material-symbols-outlined text-[14px] text-on-secondary-container font-bold">check</span>
+                    <span className="material-symbols-outlined text-[14px] text-[#6b4600] font-bold">check</span>
                   )}
                 </div>
-                <span className="font-label-sm text-label-sm text-secondary-fixed text-center uppercase tracking-tight">
+                <span className="font-label-sm text-label-sm text-[#ffc947] text-center uppercase tracking-tight">
                   AMBER DECK
                 </span>
               </button>
@@ -328,16 +328,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                 onClick={() => handleSetThemeTone('CYAN')}
                 className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-transform active:translate-y-0.5 cursor-pointer ${
                   themeTone === 'CYAN'
-                    ? 'bg-surface-container-highest shadow-sm'
+                    ? 'bg-surface-container-highest shadow-sm ring-1 ring-[#00e1ff]/40'
                     : 'bg-surface-container-high opacity-70 hover:opacity-100'
                 }`}
               >
-                <div className="w-6 h-6 rounded-full bg-tertiary-container flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-[#00e1ff] flex items-center justify-center shadow-sm">
                   {themeTone === 'CYAN' && (
-                    <span className="material-symbols-outlined text-[14px] text-on-tertiary-container font-bold">check</span>
+                    <span className="material-symbols-outlined text-[14px] text-[#004e60] font-bold">check</span>
                   )}
                 </div>
-                <span className="font-label-sm text-label-sm text-tertiary-fixed text-center uppercase tracking-tight">
+                <span className="font-label-sm text-label-sm text-[#47d6ff] text-center uppercase tracking-tight">
                   TERMINAL CYAN
                 </span>
               </button>
