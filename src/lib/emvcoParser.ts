@@ -305,8 +305,11 @@ export function formatAccountNumber(number: string, mask = false): string {
 
   // If it's an alphanumeric reference/token (e.g. DWQM4TK3JDNXIB3FS)
   if (/[a-zA-Z]/.test(trimmed)) {
-    if (mask && trimmed.length > 6) {
-      return `ID: ••••${trimmed.slice(-6)}`;
+    if (mask) {
+      if (trimmed.length > 6) {
+        return `ID: ••••${trimmed.slice(-4)}`;
+      }
+      return 'ID: ••••';
     }
     return trimmed.startsWith('ID:') ? trimmed : `ID: ${trimmed}`;
   }
@@ -315,8 +318,8 @@ export function formatAccountNumber(number: string, mask = false): string {
 
   if (mask) {
     if (digits.length === 11 && digits.startsWith('09')) {
-      // 0917 •••• 567
-      return `${digits.slice(0, 4)} •••• ${digits.slice(8)}`;
+      // 0917 •••• 5678
+      return `${digits.slice(0, 4)} •••• ${digits.slice(-4)}`;
     }
     if (digits.length >= 8) {
       // 1234 •••• 5678
@@ -324,6 +327,10 @@ export function formatAccountNumber(number: string, mask = false): string {
       const suffixLen = Math.min(4, Math.floor(digits.length / 3));
       return `${digits.slice(0, prefixLen)} •••• ${digits.slice(-suffixLen)}`;
     }
+    if (digits.length >= 4) {
+      return `•••• ${digits.slice(-4)}`;
+    }
+    return '••••';
   }
 
   // Philippine 11-digit mobile: 09XX XXX XXXX

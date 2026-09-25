@@ -398,7 +398,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
             </div>
           </div>
 
-          {/* Stealth Mode Balance Masking */}
+          {/* Stealth Mode ID Masking */}
           <div
             onClick={onTogglePrivacyMask}
             className="flex items-center justify-between p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer"
@@ -410,14 +410,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <span className="font-headline-md text-headline-md text-on-surface text-[15px] leading-tight">
-                    Stealth Balance Masking
+                    Stealth ID Masking
                   </span>
                   <span className="px-1.5 py-0.5 rounded bg-secondary-container/20 text-secondary-fixed-dim font-label-sm text-[8px] uppercase font-bold">
                     {privacyMask ? 'ENFORCED' : 'OFF'}
                   </span>
                 </div>
                 <span className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Mask account digits as [••••••••] across public views
+                  Mask account digits and ID numbers as [••••••••] across public views
                 </span>
               </div>
             </div>

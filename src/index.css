@@ -12,6 +12,8 @@
   --theme-on-primary: #003822;
   --theme-on-primary-fixed: #002112;
   --theme-on-primary-fixed-variant: #005234;
+  --theme-glow: rgba(0, 240, 160, 0.5);
+  --theme-glow-soft: rgba(0, 240, 160, 0.2);
 }
 
 html[data-colorway="AMBER"] {
@@ -23,6 +25,8 @@ html[data-colorway="AMBER"] {
   --theme-on-primary: #3d2400;
   --theme-on-primary-fixed: #271900;
   --theme-on-primary-fixed-variant: #5e4200;
+  --theme-glow: rgba(254, 183, 0, 0.5);
+  --theme-glow-soft: rgba(254, 183, 0, 0.2);
 }
 
 html[data-colorway="CYAN"] {
@@ -34,6 +38,8 @@ html[data-colorway="CYAN"] {
   --theme-on-primary: #002833;
   --theme-on-primary-fixed: #001f28;
   --theme-on-primary-fixed-variant: #004e60;
+  --theme-glow: rgba(0, 225, 255, 0.5);
+  --theme-glow-soft: rgba(0, 225, 255, 0.2);
 }
 
 html, body {

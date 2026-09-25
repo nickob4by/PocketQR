@@ -16,6 +16,7 @@ interface QRCardProps {
 
 export const QRCard: React.FC<QRCardProps> = ({
   card,
+  privacyMask = false,
   onPresent,
   onEdit,
   onDelete,
@@ -42,12 +43,12 @@ export const QRCard: React.FC<QRCardProps> = ({
     card.accountNumber?.startsWith('217020000000');
 
   const accountNumberRaw = (!isStaleRoutingCode && card.accountNumber) || parsedData?.accountNumber || '';
-  const displayAccount = formatAccountNumber(accountNumberRaw, false);
+  const displayAccount = formatAccountNumber(accountNumberRaw, privacyMask);
 
   return (
     <div
       onClick={() => onPresent(card)}
-      className="relative bg-surface-container-high rounded-xl p-3 shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 active:translate-y-0.5 transition-all flex flex-col gap-2 select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-[0_2px_8px_rgba(0,240,160,0.1)] group/card"
+      className="relative bg-surface-container-high rounded-xl p-3 shadow-[0_2px_0_0_#0b0e15] border border-outline-variant/30 active:translate-y-0.5 transition-all flex flex-col gap-2 select-none cursor-pointer hover:border-primary-fixed/50 hover:shadow-[0_2px_8px_var(--theme-glow-soft,rgba(0,240,160,0.1))] group/card"
     >
       {/* Card Header Strip: Bank Pill, Rail Tag & Actions */}
       <div className="flex items-center justify-between">

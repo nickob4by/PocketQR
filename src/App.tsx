@@ -440,7 +440,7 @@ export function App() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleOpenScan}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm font-bold shadow-lg active:translate-y-0.5 transition-all uppercase hover:bg-primary-fixed cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm font-bold shadow-lg shadow-[0_0_14px_var(--theme-glow-soft,rgba(0,240,160,0.25))] active:translate-y-0.5 transition-all uppercase hover:bg-primary-fixed cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
                     <span>SCAN TO PAY</span>
@@ -541,6 +541,7 @@ export function App() {
       {/* Presentation Fullscreen Modal (Cashier Mode) */}
       <PresentationModal
         card={presentationCard}
+        privacyMask={privacyMask}
         onClose={closeModal}
         onPayWithBank={(c) => {
           window.history.replaceState({ pocketqrModal: 'routing' }, '');

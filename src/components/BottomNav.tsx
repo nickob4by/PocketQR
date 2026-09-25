@@ -48,7 +48,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <button
           onClick={onScanClick}
           aria-label="Scan to Pay"
-          className="relative -top-3 flex flex-col items-center justify-center w-16 h-16 rounded-full bg-primary-container text-on-primary-fixed shadow-[0_0_20px_rgba(0,240,160,0.45)] border-2 border-primary-fixed-dim transition-transform active:translate-y-0.5 flex-shrink-0 cursor-pointer"
+          className="relative -top-3 flex flex-col items-center justify-center w-16 h-16 rounded-full bg-primary-container text-on-primary-fixed shadow-[0_0_22px_var(--theme-glow,rgba(0,240,160,0.5))] border-2 border-primary-fixed-dim transition-transform active:translate-y-0.5 flex-shrink-0 cursor-pointer"
         >
           <span className="material-symbols-outlined text-[28px] font-bold text-on-primary">
             qr_code_scanner

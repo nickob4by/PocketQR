@@ -12,6 +12,7 @@ import { addLog } from '../lib/storage';
 
 interface PresentationModalProps {
   card: QRCardItem | null;
+  privacyMask?: boolean;
   onClose: () => void;
   onPayWithBank?: (card: QRCardItem) => void;
   onNotify: (title: string, description?: string, type?: 'success' | 'info' | 'error') => void;
@@ -20,12 +21,14 @@ interface PresentationModalProps {
 
 export const PresentationModal: React.FC<PresentationModalProps> = ({
   card,
+  privacyMask = false,
   onClose,
   onPayWithBank,
   onNotify,
   onLogAdded,
 }) => {
   const [isRotated, setIsRotated] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
   const [copiedNumber, setCopiedNumber] = useState(false);
   const [copiedQR, setCopiedQR] = useState(false);
   const [savedToGallery, setSavedToGallery] = useState(false);
@@ -269,14 +272,28 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
                 {card.accountName}
               </h2>
 
-              {/* Mobile Target Pill with Tactile Copy Action */}
+              {/* Mobile Target Pill with Tactile Copy & Reveal Action */}
               <div className="mt-space-xs flex items-center gap-space-xs bg-surface-container-lowest px-space-md py-space-xs rounded-lg shadow-sm border border-outline-variant/30">
                 <span className="material-symbols-outlined text-[16px] text-primary">
                   smartphone
                 </span>
                 <span className="font-label-md text-label-md text-on-surface font-bold tracking-wider text-xs">
-                  {formatAccountNumber(resolvedAccountNumber, false)}
+                  {formatAccountNumber(resolvedAccountNumber, privacyMask && !isRevealed)}
                 </span>
+                {privacyMask && (
+                  <button
+                    onClick={() => {
+                      setIsRevealed(!isRevealed);
+                      triggerHaptic('light');
+                    }}
+                    title={isRevealed ? 'Hide ID digits' : 'Reveal ID digits'}
+                    className="p-1 rounded text-outline hover:text-primary transition-colors cursor-pointer flex items-center"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">
+                      {isRevealed ? 'visibility' : 'visibility_off'}
+                    </span>
+                  </button>
+                )}
                 <button
                   onClick={handleCopyNumber}
                   className="ml-space-xs bg-surface-container-high hover:bg-surface-bright text-primary font-label-sm text-label-sm px-space-sm py-0.5 rounded transition-transform active:translate-y-0.5 flex items-center gap-1 font-bold cursor-pointer text-[10px]"
