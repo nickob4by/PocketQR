@@ -120,32 +120,34 @@ public class BankingAppPlugin extends Plugin {
 
         Intent launchIntent = null;
 
-        // 1. Attempt launch via custom URI scheme first (e.g. gcash://, maya://)
-        if (scheme != null && !scheme.isEmpty()) {
+        // 1. Prioritize canonical package launcher intent first (e.g. com.rcbc.pulz, com.globe.gcash.android).
+        // Using getLaunchIntentForPackage opens the clean front-door launcher activity (login/biometrics)
+        // exactly like tapping the app icon on the home screen, preventing splash-screen hangs caused by bare URI schemes.
+        if (packageName != null && !packageName.isEmpty()) {
+            try {
+                launchIntent = pm.getLaunchIntentForPackage(packageName);
+                if (launchIntent != null) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Package launcher intent lookup failed, attempting scheme fallback", e);
+            }
+        }
+
+        // 2. Fallback to custom URI scheme if launcher intent is unavailable
+        if (launchIntent == null && scheme != null && !scheme.isEmpty()) {
             try {
                 Intent schemeIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(scheme));
                 if (packageName != null && !packageName.isEmpty()) {
                     schemeIntent.setPackage(packageName);
                 }
-                schemeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                schemeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
                 List<ResolveInfo> activities = pm.queryIntentActivities(schemeIntent, 0);
                 if (activities != null && !activities.isEmpty()) {
                     launchIntent = schemeIntent;
                 }
             } catch (Exception e) {
-                Log.w(TAG, "Scheme launch failed, attempting package launch fallback", e);
-            }
-        }
-
-        // 2. Fallback to package launcher intent
-        if (launchIntent == null && packageName != null && !packageName.isEmpty()) {
-            try {
-                launchIntent = pm.getLaunchIntentForPackage(packageName);
-                if (launchIntent != null) {
-                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "Package launch fallback failed", e);
+                Log.w(TAG, "Scheme launch failed", e);
             }
         }
 
@@ -189,22 +191,29 @@ public class BankingAppPlugin extends Plugin {
                 String scheme = appObj.optString("scheme");
 
                 Intent appIntent = null;
-                if (scheme != null && !scheme.isEmpty()) {
-                    Intent sIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(scheme));
-                    if (packageName != null && !packageName.isEmpty()) {
-                        sIntent.setPackage(packageName);
-                    }
-                    if (!pm.queryIntentActivities(sIntent, 0).isEmpty()) {
-                        appIntent = sIntent;
-                    }
+
+                // 1. Prioritize canonical package launcher intent first
+                if (packageName != null && !packageName.isEmpty()) {
+                    try {
+                        appIntent = pm.getLaunchIntentForPackage(packageName);
+                    } catch (Exception ignored) {}
                 }
 
-                if (appIntent == null && packageName != null && !packageName.isEmpty()) {
-                    appIntent = pm.getLaunchIntentForPackage(packageName);
+                // 2. Fallback to custom URI scheme
+                if (appIntent == null && scheme != null && !scheme.isEmpty()) {
+                    try {
+                        Intent sIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(scheme));
+                        if (packageName != null && !packageName.isEmpty()) {
+                            sIntent.setPackage(packageName);
+                        }
+                        if (!pm.queryIntentActivities(sIntent, 0).isEmpty()) {
+                            appIntent = sIntent;
+                        }
+                    } catch (Exception ignored) {}
                 }
 
                 if (appIntent != null) {
-                    appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
                     targetedIntents.add(appIntent);
                 }
             }

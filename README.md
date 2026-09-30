@@ -13,7 +13,7 @@
 <br/>
 
 <a href="https://github.com/nickob4by/PocketQR/releases/latest/download/PocketQR.apk">
-  <img src="https://img.shields.io/badge/📲_DOWNLOAD_LATEST_APK-v1.0.29-00f0a0?style=for-the-badge&labelColor=10131a" alt="Download APK" height="42" />
+  <img src="https://img.shields.io/badge/📲_DOWNLOAD_LATEST_APK-v1.0.30-00f0a0?style=for-the-badge&labelColor=10131a" alt="Download APK" height="42" />
 </a>
 
 <p align="center">
@@ -108,6 +108,7 @@
 
 ### ⚡ Direct Banking App Handoff
 - **Zero Browser Sandboxing**: Bypasses slow mobile web browsers and redirects directly to official installed Philippine banking apps via native Android `Intent` and `PackageManager` detection.
+- **Splash Freeze Prevention**: Dispatches apps via canonical package launcher intents (`FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_RESET_TASK_IF_NEEDED`), ensuring apps like RCBC Pulz, Maya, and GCash open directly to their authentication/biometric screen without hanging on empty deep link routers.
 - **System Chooser Integration**: Automatically detects which payment apps are installed on your device (GCash, Maya, RCBC Pulz, BPI, etc.) and routes with one tap.
 
 ---
@@ -164,7 +165,7 @@ PocketQR/
 ## 📲 Installation & Sideloading
 
 ### Android Sideloading (Recommended)
-1. Download the latest APK: **[PocketQR.apk (v1.0.29)](https://github.com/nickob4by/PocketQR/releases/latest/download/PocketQR.apk)**.
+1. Download the latest APK: **[PocketQR.apk (v1.0.30)](https://github.com/nickob4by/PocketQR/releases/latest/download/PocketQR.apk)**.
 2. On your Android device, open the downloaded file from **Downloads** or your notification shade.
 3. If prompted, toggle **"Allow from this source"** in Android Settings.
 4. Tap **Install** and launch PocketQR!
